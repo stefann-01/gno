@@ -213,6 +213,17 @@ func GetMarketPrice(marketId string) string {
 	return price.ToString()
 }
 
+func GetAllMarketIds() string {
+	result := ""
+	
+	markets.Iterate("", "", func(key string, _ interface{}) bool {
+		result += key + ","
+		return false
+	})
+	
+	return result
+}
+
 // Other getters
 
 func GetSupplyShares(marketId string, user std.Address) string {
