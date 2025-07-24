@@ -42,51 +42,96 @@ func renderUserPage(path string) string {
 		displayName = userAddr
 	}
 
-	out := md.H1("User Page")
+	out := md.H1("👤 User Page")
 
+	markets := GetUserMarkets(userAddr)
 	loans := GetUserLoans(userAddr)
-	if len(loans) == 0 {
-		out += md.Paragraph("No loans found for this address.")
+
+	if len(markets) == 0 && len(loans) == 0 {
+		out += md.Paragraph("🦌 This user has no positions or loans in any market.")
 		return out
 	}
 
-	var (
-		labels []string
-		values []float64
-	)
-	for i := 0; i < len(loans); i += 2 {
-		tokenPath := loans[i]
-		amountStr := loans[i+1]
-		amount, err := strconv.ParseFloat(amountStr, 64)
-		if err != nil {
-			continue
-		}
-		token := grc20reg.Get(tokenPath)
-		label := tokenPath
-		if token != nil {
-			label = token.GetSymbol()
-		}
-		labels = append(labels, label)
-		values = append(values, amount)
+	totalSupplied := 0.0
+	totalBorrowed := 0.0
+
+	table := mdtable.Table{
+		Headers: []string{"Market", "Supplied", "Borrowed", "Collateral", "Health Factor"},
 	}
 
-	chart := charts.GenerateBarChart(values, labels, 30, "Loans for "+displayName)
-	out += chart
+	anyRisk := false
 
-	// (Add more user info/sections here as needed)
+	for _, marketId := range markets {
+		pos := GetPosition(marketId, userAddr)
+		_, params := GetMarket(marketId)
+		loanToken := grc20reg.Get(params.GetLoanToken())
+		collateralToken := grc20reg.Get(params.GetCollateralToken())
+		marketLabel := marketId
+		if loanToken != nil && collateralToken != nil {
+			marketLabel = loanToken.GetSymbol() + "/" + collateralToken.GetSymbol()
+		}
+		supplied := pos.SupplyShares.ToString()
+		borrowed := pos.BorrowShares.ToString()
+		collateral := pos.Collateral.ToString()
+		hf := GetHealthFactor(marketId, userAddr)
+
+		suppliedF, _ := strconv.ParseFloat(supplied, 64)
+		borrowedF, _ := strconv.ParseFloat(borrowed, 64)
+		hfF, _ := strconv.ParseFloat(hf, 64)
+		totalSupplied += suppliedF
+		totalBorrowed += borrowedF
+		if hfF < 1.0 {
+			anyRisk = true
+		}
+		table.Append([]string{marketLabel, supplied, borrowed, collateral, hf})
+	}
+
+	if len(markets) > 0 {
+		out += md.H2("📈 Positions")
+		out += table.String()
+		out += md.Paragraph("💰 **Total Supplied:** " + strconv.FormatFloat(totalSupplied, 'f', 2, 64))
+		out += md.Paragraph("💰 **Total Borrowed:** " + strconv.FormatFloat(totalBorrowed, 'f', 2, 64))
+		if anyRisk {
+			out += md.Paragraph("⚠️ " + md.Bold("Warning: One or more positions are at risk of liquidation!"))
+		}
+	}
+
+	if len(loans) > 0 {
+		var (
+			labels []string
+			values []float64
+		)
+		for i := 0; i < len(loans); i += 2 {
+			tokenPath := loans[i]
+			amountStr := loans[i+1]
+			amount, err := strconv.ParseFloat(amountStr, 64)
+			if err != nil {
+				continue
+			}
+			token := grc20reg.Get(tokenPath)
+			label := tokenPath
+			if token != nil {
+				label = token.GetSymbol()
+			}
+			labels = append(labels, label)
+			values = append(values, amount)
+		}
+		chart := charts.GenerateBarChart(values, labels, 30, "Loans for "+displayName)
+		out += md.H2("📊 Loans by Token")
+		out += chart
+	}
 
 	return out
 }
 
 func renderHome(path string) string {
-	out := md.H1("Volos")
-	out += md.H3("Lending Protocol")
+	out := md.H1("Volos🦌")
 	out += md.Paragraph("Volos is a decentralized lending protocol built on gno.land. It enables users to lend and borrow assets through configurable markets, with real-time risk management and on-chain price oracles powered by Gnoswap pools. The protocol uses a shares-based accounting system, supports variable interest rates, and ensures solvency through continuous health monitoring and liquidation mechanisms—all within the gno.land ecosystem.")
 
 	pager := pager.NewPager(markets, pageSize, false)
 	page := pager.MustGetPageByPath(path)
 
-	out += md.H2("Markets")
+	out += md.H2("📊 Markets")
 	out += md.Paragraph("Browse all lending markets on Volos. Each market is defined by a Gnoswap pool, interest rate model, and collateralization parameters.")
 
 	table := mdtable.Table{
@@ -119,7 +164,7 @@ func renderHome(path string) string {
 	}
 
 	if len(table.Rows) == 0 {
-		out += md.Italic("No markets have been created yet.")
+		out += md.Italic("No markets have been created yet. 🦌")
 	} else {
 		out += table.String()
 		out += md.HorizontalRule()
