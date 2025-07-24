@@ -70,6 +70,7 @@ func renderUserPage(path string) string {
 		if loanToken != nil && collateralToken != nil {
 			marketLabel = loanToken.GetSymbol() + "/" + collateralToken.GetSymbol()
 		}
+		marketLink := md.Link(marketLabel, "?market="+marketId)
 		supplied := pos.SupplyShares.ToString()
 		borrowed := pos.BorrowShares.ToString()
 		collateral := pos.Collateral.ToString()
@@ -83,14 +84,17 @@ func renderUserPage(path string) string {
 		if hfF < 1.0 {
 			anyRisk = true
 		}
-		table.Append([]string{marketLabel, supplied, borrowed, collateral, hf})
+		table.Append([]string{marketLink, supplied, borrowed, collateral, hf})
 	}
 
 	if len(markets) > 0 {
 		out += md.H2("📈 Positions")
 		out += table.String()
-		out += md.Paragraph("💰 **Total Supplied:** " + strconv.FormatFloat(totalSupplied, 'f', 2, 64))
-		out += md.Paragraph("💰 **Total Borrowed:** " + strconv.FormatFloat(totalBorrowed, 'f', 2, 64))
+		out += "\n"
+		out += md.Blockquote("These fiat values are mocked: 1 token denom = $1.")
+		out += "\n"
+		out += md.Paragraph("💰 **Total Supplied:** $" + FormatMoney(totalSupplied))
+		out += md.Paragraph("💰 **Total Borrowed:** $" + FormatMoney(totalBorrowed))
 		if anyRisk {
 			out += md.Paragraph("⚠️ " + md.Bold("Warning: One or more positions are at risk of liquidation!"))
 		}
