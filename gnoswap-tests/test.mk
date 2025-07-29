@@ -8,7 +8,7 @@ OBL_PATH := gno.land/r/gnoswap/v1/test_token/obl
 QUX_PATH := gno.land/r/gnoswap/v1/test_token/qux
 FOO_PATH := gno.land/r/gnoswap/v1/test_token/foo
 
-ADDR_TEST_ADMIN := g1tzl3sgre0c2zgxfpws9xhq0c069wf7zqh6aqqy
+ADDR_TEST_ADMIN := g1kjsl2ungmc95mgluq96w8dqlep8d4n8cxdfthk
 ADDR_USER_1 :=
 ADDR_USER_2 :=
 ADDR_USER_3 :=
