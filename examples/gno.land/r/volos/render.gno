@@ -11,6 +11,8 @@ import (
 	"gno.land/p/moul/mdtable"
 	"gno.land/r/demo/grc20reg"
 	"gno.land/r/sys/users"
+	"gno.land/p/demo/avl/rotree"
+	"gno.land/p/demo/avl"
 )
 
 const pageSize = 10
@@ -21,6 +23,9 @@ func Render(path string) string {
 	}
 	if strings.HasPrefix(path, "?user=") {
 		return renderUserPage(path)
+	}
+	if strings.HasPrefix(path, "?market=") {
+		return renderMarketPage(path)
 	}
 	// Future: handle market detail, etc.
 	return md.Paragraph("Unknown page.")
@@ -179,4 +184,173 @@ func renderHome(path string) string {
 	}
 
 	return out
+}
+
+func renderMarketPage(path string) string {
+	marketId := strings.TrimPrefix(path, "?market=")
+	marketId = strings.SplitN(marketId, "&", 2)[0]
+	if marketId == "" {
+		return md.Paragraph("No market ID provided.")
+	}
+	println("marketId", marketId) //needs to be decoded
+
+	// Get market data
+	market, params := GetMarket(marketId)
+	
+	// Get token information
+	loanPath := params.GetLoanToken()
+	collateralPath := params.GetCollateralToken()
+	loanToken := grc20reg.Get(loanPath)
+	collateralToken := grc20reg.Get(collateralPath)
+	
+	loanSymbol := loanPath
+	collateralSymbol := collateralPath
+	if loanToken != nil {
+		loanSymbol = loanToken.GetSymbol()
+	}
+	if collateralToken != nil {
+		collateralSymbol = collateralToken.GetSymbol()
+	}
+
+	out := md.H1("🏦 " + loanSymbol + "/" + collateralSymbol + " Market")
+	out += md.Paragraph("Market ID: " + md.InlineCode(marketId))
+	
+	// Market Overview Table
+	out += md.H2("📊 Market Overview")
+	overviewTable := mdtable.Table{
+		Headers: []string{"Parameter", "Value"},
+	}
+	overviewTable.Append([]string{"Pool Path", md.InlineCode(params.PoolPath)})
+	overviewTable.Append([]string{"Loan Token", loanSymbol + " (" + md.InlineCode(loanPath) + ")"})
+	overviewTable.Append([]string{"Collateral Token", collateralSymbol + " (" + md.InlineCode(collateralPath) + ")"})
+	overviewTable.Append([]string{"Interest Rate Model", md.InlineCode(params.IRM)})
+	overviewTable.Append([]string{"Liquidation LTV", params.LLTV.ToString() + "%"})
+	overviewTable.Append([]string{"Market Fee", market.Fee.ToString()})
+	out += overviewTable.String()
+	
+	// Market Statistics
+	out += md.H2("💰 Market Statistics")
+	statsTable := mdtable.Table{
+		Headers: []string{"Metric", "Value"},
+	}
+	statsTable.Append([]string{"Total Supply Assets", FormatMoney(parseFloat(GetMarketTotalSupplyAssets(marketId)))})
+	statsTable.Append([]string{"Total Supply Shares", GetMarketTotalSupplyShares(marketId)})
+	statsTable.Append([]string{"Total Borrow Assets", FormatMoney(parseFloat(GetMarketTotalBorrowAssets(marketId)))})
+	statsTable.Append([]string{"Total Borrow Shares", GetMarketTotalBorrowShares(marketId)})
+	statsTable.Append([]string{"Utilization Rate", calculateUtilization(marketId) + "%"})
+	statsTable.Append([]string{"Last Update", formatTimestamp(market.LastUpdate)})
+	out += statsTable.String()
+	
+	// Interest Rates
+	out += md.H2("📈 Interest Rates")
+	ratesTable := mdtable.Table{
+		Headers: []string{"Rate Type", "Per Second", "APR"},
+	}
+	borrowRate := GetBorrowRate(marketId)
+	supplyRate := GetSupplyRate(marketId)
+	borrowAPR := GetBorrowAPR(marketId)
+	supplyAPR := GetSupplyAPR(marketId)
+	
+	ratesTable.Append([]string{"Borrow Rate", formatRate(borrowRate), formatRate(borrowAPR) + "%"})
+	ratesTable.Append([]string{"Supply Rate", formatRate(supplyRate), formatRate(supplyAPR) + "%"})
+	out += ratesTable.String()
+	
+	// Current Price
+	out += md.H2("💱 Current Price")
+	price := GetMarketPrice(marketId)
+	out += md.Paragraph("**Oracle Price:** " + price + " " + loanSymbol + " per " + collateralSymbol)
+	out += md.Blockquote("Price sourced from Gnoswap pool: " + params.PoolPath)
+	
+	// Top Positions
+	out += md.H2("👥 Top Positions")
+	positions := GetPositionList(marketId)
+	if len(positions) == 0 {
+		out += md.Paragraph("🦌 No positions in this market yet.")
+	} else {
+		// Create a simple tree from positions for pagination
+		positionsTree := avl.NewTree()
+		for _, userAddr := range positions {
+			positionsTree.Set(userAddr, userAddr) // Use address as both key and value
+		}
+		
+		// Create pager for positions
+		positionPager := pager.NewPager(rotree.Wrap(positionsTree, nil), 10, false)
+		positionPage := positionPager.MustGetPageByPath(path)
+		
+		positionsTable := mdtable.Table{
+			Headers: []string{"User", "Supplied", "Borrowed", "Collateral", "Health Factor"},
+		}
+		
+		for _, item := range positionPage.Items {
+			userAddr := item.Key
+			pos := GetPosition(marketId, userAddr)
+			if pos.SupplyShares.IsZero() && pos.BorrowShares.IsZero() && pos.Collateral.IsZero() {
+				continue
+			}
+			
+			// Get user display name
+			usAddr := std.Address(userAddr)
+			userData := users.ResolveAddress(usAddr)
+			displayName := userAddr
+			if userData != nil && userData.Name() != "" {
+				displayName = userData.Name()
+			}
+			
+			userLink := md.Link(displayName, "?user="+userAddr)
+			supplied := pos.SupplyShares.ToString()
+			borrowed := pos.BorrowShares.ToString()
+			collateral := pos.Collateral.ToString()
+			healthFactor := GetHealthFactor(marketId, userAddr)
+			
+			positionsTable.Append([]string{userLink, supplied, borrowed, collateral, healthFactor})
+		}
+		
+		if len(positionsTable.Rows) > 0 {
+			out += positionsTable.String()
+			out += md.HorizontalRule()
+			picker := positionPage.Picker(path)
+			if picker != "" {
+				out += md.Paragraph(picker)
+			}
+		} else {
+			out += md.Paragraph("🦌 No active positions in this market.")
+		}
+	}
+	
+	// Navigation
+	out += md.H2("🔗 Navigation")
+	out += md.Paragraph(md.Link("← Back to Markets", ""))
+	out += md.Paragraph(md.Link("🏠 Home", ""))
+	
+	return out
+}
+
+// Helper functions
+func parseFloat(s string) float64 {
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
+}
+
+func calculateUtilization(marketId string) string {
+	totalSupply := parseFloat(GetMarketTotalSupplyAssets(marketId))
+	totalBorrow := parseFloat(GetMarketTotalBorrowAssets(marketId))
+	
+	if totalSupply == 0 {
+		return "0.00"
+	}
+	
+	utilization := (totalBorrow / totalSupply) * 100
+	return strconv.FormatFloat(utilization, 'f', 2, 64)
+}
+
+func formatRate(rateStr string) string {
+	rate := parseFloat(rateStr)
+	// Convert from WAD-scaled to percentage
+	percentage := rate * 100
+	return strconv.FormatFloat(percentage, 'f', 4, 64)
+}
+
+func formatTimestamp(timestamp int64) string {
+	// Simple timestamp formatting - could be enhanced with proper date formatting
+	return strconv.FormatInt(timestamp, 10)
 }
