@@ -1,9 +1,12 @@
 package volos
 
 import (
+	"net/url"
 	"std"
 	"strconv"
 	"strings"
+	"time"
+
 
 	"gno.land/p/demo/avl/pager"
 	"gno.land/p/matijamarjanovic/charts"
@@ -27,7 +30,6 @@ func Render(path string) string {
 	if strings.HasPrefix(path, "?market=") {
 		return renderMarketPage(path)
 	}
-	// Future: handle market detail, etc.
 	return md.Paragraph("Unknown page.")
 }
 
@@ -137,6 +139,9 @@ func renderHome(path string) string {
 	out := md.H1("Volos🦌")
 	out += md.Paragraph("Volos is a decentralized lending protocol built on gno.land. It enables users to lend and borrow assets through configurable markets, with real-time risk management and on-chain price oracles powered by Gnoswap pools. The protocol uses a shares-based accounting system, supports variable interest rates, and ensures solvency through continuous health monitoring and liquidation mechanisms—all within the gno.land ecosystem.")
 
+	out += md.H2("👤 Check Your Position")
+	out += md.Blockquote("To view your lending and borrowing positions on Volos, navigate to `?user=g1xxx` e.g. `?user=g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`")
+
 	pager := pager.NewPager(markets, pageSize, false)
 	page := pager.MustGetPageByPath(path)
 
@@ -192,12 +197,11 @@ func renderMarketPage(path string) string {
 	if marketId == "" {
 		return md.Paragraph("No market ID provided.")
 	}
-	println("marketId", marketId) //needs to be decoded
+	
+	marketId, _ = url.QueryUnescape(marketId)
 
-	// Get market data
 	market, params := GetMarket(marketId)
 	
-	// Get token information
 	loanPath := params.GetLoanToken()
 	collateralPath := params.GetCollateralToken()
 	loanToken := grc20reg.Get(loanPath)
@@ -213,9 +217,8 @@ func renderMarketPage(path string) string {
 	}
 
 	out := md.H1("🏦 " + loanSymbol + "/" + collateralSymbol + " Market")
-	out += md.Paragraph("Market ID: " + md.InlineCode(marketId))
+	out += md.Paragraph("**Market ID:** " + md.InlineCode(marketId))
 	
-	// Market Overview Table
 	out += md.H2("📊 Market Overview")
 	overviewTable := mdtable.Table{
 		Headers: []string{"Parameter", "Value"},
@@ -228,57 +231,48 @@ func renderMarketPage(path string) string {
 	overviewTable.Append([]string{"Market Fee", market.Fee.ToString()})
 	out += overviewTable.String()
 	
-	// Market Statistics
-	out += md.H2("💰 Market Statistics")
+	out += md.H2("💰 Market Statistics & Rates")
 	statsTable := mdtable.Table{
-		Headers: []string{"Metric", "Value"},
+		Headers: []string{"Metric", "Value", "Rate Type", "APR"},
 	}
-	statsTable.Append([]string{"Total Supply Assets", FormatMoney(parseFloat(GetMarketTotalSupplyAssets(marketId)))})
-	statsTable.Append([]string{"Total Supply Shares", GetMarketTotalSupplyShares(marketId)})
-	statsTable.Append([]string{"Total Borrow Assets", FormatMoney(parseFloat(GetMarketTotalBorrowAssets(marketId)))})
-	statsTable.Append([]string{"Total Borrow Shares", GetMarketTotalBorrowShares(marketId)})
-	statsTable.Append([]string{"Utilization Rate", calculateUtilization(marketId) + "%"})
-	statsTable.Append([]string{"Last Update", formatTimestamp(market.LastUpdate)})
-	out += statsTable.String()
 	
-	// Interest Rates
-	out += md.H2("📈 Interest Rates")
-	ratesTable := mdtable.Table{
-		Headers: []string{"Rate Type", "Per Second", "APR"},
-	}
-	borrowRate := GetBorrowRate(marketId)
-	supplyRate := GetSupplyRate(marketId)
 	borrowAPR := GetBorrowAPR(marketId)
 	supplyAPR := GetSupplyAPR(marketId)
 	
-	ratesTable.Append([]string{"Borrow Rate", formatRate(borrowRate), formatRate(borrowAPR) + "%"})
-	ratesTable.Append([]string{"Supply Rate", formatRate(supplyRate), formatRate(supplyAPR) + "%"})
-	out += ratesTable.String()
+	statsTable.Append([]string{
+		"Total Supply Assets", FormatMoney(parseFloat(GetMarketTotalSupplyAssets(marketId))),
+		"Borrow Rate", formatRate(borrowAPR) + "%",
+	})
+	statsTable.Append([]string{
+		"Total Borrow Assets", FormatMoney(parseFloat(GetMarketTotalBorrowAssets(marketId))),
+		"Supply Rate", formatRate(supplyAPR) + "%",
+	})
+	statsTable.Append([]string{
+		"Utilization Rate", calculateUtilization(marketId) + "%",
+		"Last Update", formatTimestamp(market.LastUpdate),
+	})
+	out += statsTable.String()
 	
-	// Current Price
 	out += md.H2("💱 Current Price")
 	price := GetMarketPrice(marketId)
 	out += md.Paragraph("**Oracle Price:** " + price + " " + loanSymbol + " per " + collateralSymbol)
 	out += md.Blockquote("Price sourced from Gnoswap pool: " + params.PoolPath)
 	
-	// Top Positions
 	out += md.H2("👥 Top Positions")
 	positions := GetPositionList(marketId)
 	if len(positions) == 0 {
 		out += md.Paragraph("🦌 No positions in this market yet.")
 	} else {
-		// Create a simple tree from positions for pagination
 		positionsTree := avl.NewTree()
 		for _, userAddr := range positions {
-			positionsTree.Set(userAddr, userAddr) // Use address as both key and value
+			positionsTree.Set(userAddr, userAddr)
 		}
 		
-		// Create pager for positions
-		positionPager := pager.NewPager(rotree.Wrap(positionsTree, nil), 10, false)
+		positionPager := pager.NewPager(rotree.Wrap(positionsTree, nil), 5, false)
 		positionPage := positionPager.MustGetPageByPath(path)
 		
 		positionsTable := mdtable.Table{
-			Headers: []string{"User", "Supplied", "Borrowed", "Collateral", "Health Factor"},
+			Headers: []string{"User", "Supplied", "Borrowed", "Health Factor"},
 		}
 		
 		for _, item := range positionPage.Items {
@@ -288,7 +282,6 @@ func renderMarketPage(path string) string {
 				continue
 			}
 			
-			// Get user display name
 			usAddr := std.Address(userAddr)
 			userData := users.ResolveAddress(usAddr)
 			displayName := userAddr
@@ -299,10 +292,14 @@ func renderMarketPage(path string) string {
 			userLink := md.Link(displayName, "?user="+userAddr)
 			supplied := pos.SupplyShares.ToString()
 			borrowed := pos.BorrowShares.ToString()
-			collateral := pos.Collateral.ToString()
 			healthFactor := GetHealthFactor(marketId, userAddr)
 			
-			positionsTable.Append([]string{userLink, supplied, borrowed, collateral, healthFactor})
+			hfFloat, _ := strconv.ParseFloat(healthFactor, 64)
+			if hfFloat < 1.0 {
+				healthFactor = "⚠️ " + healthFactor
+			}
+			
+			positionsTable.Append([]string{userLink, supplied, borrowed, healthFactor})
 		}
 		
 		if len(positionsTable.Rows) > 0 {
@@ -317,15 +314,12 @@ func renderMarketPage(path string) string {
 		}
 	}
 	
-	// Navigation
-	out += md.H2("🔗 Navigation")
-	out += md.Paragraph(md.Link("← Back to Markets", ""))
-	out += md.Paragraph(md.Link("🏠 Home", ""))
+	out += md.HorizontalRule()
+	out += md.Paragraph(md.Link("← Back to Markets", "") + " | " + md.Link("🏠 Home", ""))
 	
 	return out
 }
 
-// Helper functions
 func parseFloat(s string) float64 {
 	f, _ := strconv.ParseFloat(s, 64)
 	return f
@@ -345,12 +339,11 @@ func calculateUtilization(marketId string) string {
 
 func formatRate(rateStr string) string {
 	rate := parseFloat(rateStr)
-	// Convert from WAD-scaled to percentage
 	percentage := rate * 100
 	return strconv.FormatFloat(percentage, 'f', 4, 64)
 }
 
 func formatTimestamp(timestamp int64) string {
-	// Simple timestamp formatting - could be enhanced with proper date formatting
-	return strconv.FormatInt(timestamp, 10)
+	t := time.Unix(timestamp, 0)
+	return t.Format("02 Jan 2006, 15:04:05")
 }
