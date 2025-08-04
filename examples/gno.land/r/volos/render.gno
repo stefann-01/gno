@@ -24,12 +24,15 @@ func Render(path string) string {
 	if path == "" || strings.HasPrefix(path, "?page=") {
 		return renderHome(path)
 	}
-	if strings.HasPrefix(path, "?user=") {
+
+	switch {
+	case strings.HasPrefix(path, "?user="):
 		return renderUserPage(path)
-	}
-	if strings.HasPrefix(path, "?market=") {
+	case strings.HasPrefix(path, "?market="):
 		return renderMarketPage(path)
+	default:
 	}
+
 	return md.Paragraph("Unknown page.")
 }
 
