@@ -317,9 +317,6 @@ func renderMarketPage(path string) string {
 		}
 	}
 	
-	out += md.HorizontalRule()
-	out += md.Paragraph(md.Link("← Back to Markets", "") + " | " + md.Link("🏠 Home", ""))
-	
 	return out
 }
 
