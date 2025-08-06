@@ -16,7 +16,8 @@ import (
 	"gno.land/r/sys/users"
 	"gno.land/p/demo/avl/rotree"
 	"gno.land/p/demo/avl"
-	"gno.land/r/volos/core"
+	volos "gno.land/r/volos/core"
+	"gno.land/p/demo/ufmt"
 )
 
 const pageSize = 10
@@ -104,8 +105,8 @@ func renderUserPage(path string) string {
 		out += "\n"
 		out += md.Blockquote("These fiat values are mocked: 1 token denom = $1.")
 		out += "\n"
-		out += md.Paragraph("💰 **Total Supplied:** $" + FormatMoney(totalSupplied))
-		out += md.Paragraph("💰 **Total Borrowed:** $" + FormatMoney(totalBorrowed))
+		out += md.Paragraph("💰 **Total Supplied:** $" + formatMoney(totalSupplied))
+		out += md.Paragraph("💰 **Total Borrowed:** $" + formatMoney(totalBorrowed))
 		if anyRisk {
 			out += md.Paragraph("⚠️ " + md.Bold("Warning: One or more positions are at risk of liquidation!"))
 		}
@@ -249,11 +250,11 @@ func renderMarketPage(path string) string {
 	supplyAPR := volos.GetSupplyAPR(marketId)
 	
 	statsTable.Append([]string{
-		"Total Supply Assets", FormatMoney(parseFloat(volos.GetMarketTotalSupplyAssets(marketId))),
+		"Total Supply Assets", formatMoney(parseFloat(volos.GetMarketTotalSupplyAssets(marketId))),
 		"Borrow Rate", formatRate(borrowAPR) + "%",
 	})
 	statsTable.Append([]string{
-		"Total Borrow Assets", FormatMoney(parseFloat(volos.GetMarketTotalBorrowAssets(marketId))),
+		"Total Borrow Assets", formatMoney(parseFloat(volos.GetMarketTotalBorrowAssets(marketId))),
 		"Supply Rate", formatRate(supplyAPR) + "%",
 	})
 	statsTable.Append([]string{
@@ -352,4 +353,31 @@ func formatRate(rateStr string) string {
 func formatTimestamp(timestamp int64) string {
 	t := time.Unix(timestamp, 0)
 	return t.Format("02 Jan 2006, 15:04:05")
+}
+
+func formatMoney(amount float64) string {
+	s := ufmt.Sprintf("%.2f", amount)
+	parts := strings.Split(s, ".")
+	intPart := parts[0]
+
+	n := len(intPart)
+	if n <= 3 {
+		return s
+	}
+
+	out := ""
+	count := 0
+	for i := n - 1; i >= 0; i-- {
+		if count > 0 && count%3 == 0 {
+			out = "," + out
+		}
+		out = string(intPart[i]) + out
+		count++
+	}
+
+	if len(parts) > 1 {
+		out = out + "." + parts[1]
+	}
+
+	return out
 }
