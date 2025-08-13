@@ -2,6 +2,7 @@
 # This file sets up a real governance environment for testing
 
 include _info.mk
+include ../gnoswap-tests/test.mk
 
 # Basic governance setup and test
 gov-test-flow: faucet-vls approve-vls-for-staking stake-vls faucet-all-voters approve-all-voters stake-all-voters create-test-proposal vote-all-on-all-proposals
@@ -36,17 +37,17 @@ faucet-all-voters:
 # Approve VLS for staking for all voters
 approve-all-voters:
 	$(info ************ Approve VLS for staking for all voters ************)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/vls -func Approve -args $(ADDR_STAKER) -args 10000 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER1)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/vls -func Approve -args $(ADDR_STAKER) -args 10000 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER2)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/vls -func Approve -args $(ADDR_STAKER) -args 10000 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER3)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/vls -func Approve -args $(ADDR_STAKER) -args 10000 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_1)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/vls -func Approve -args $(ADDR_STAKER) -args 10000 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_2)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/vls -func Approve -args $(ADDR_STAKER) -args 10000 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_3)
 	@echo
 
 # Stake VLS to mint xVLS for all voters
 stake-all-voters:
 	$(info ************ Stake VLS to mint xVLS for all voters ************)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/staker -func Stake -args 3000 -args $(VOTER1) -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER1)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/staker -func Stake -args 4000 -args $(VOTER2) -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER2)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/staker -func Stake -args 2000 -args $(VOTER3) -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER3)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/staker -func Stake -args 3000 -args $(ADDR_USER_1) -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_1)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/staker -func Stake -args 4000 -args $(ADDR_USER_2) -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_2)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/staker -func Stake -args 2000 -args $(ADDR_USER_3) -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_3)
 	@echo
 
 # Create a simple test proposal
@@ -65,9 +66,9 @@ vote-yes:
 vote-all-on-proposal1:
 	$(info ************ All voters vote on proposal 1 ************)
 	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "Admin supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" gnoswap_admin
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER1 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER1)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER2 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER2)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER3 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER3)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_1 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_1)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_2 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_2)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_3 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_3)
 	@echo
 
 # Vote no on the proposal
@@ -83,64 +84,64 @@ vote-abstain:
 	@echo
 
 # Multi-voter voting scenarios
-# VOTER1 votes YES on proposal 1
+# ADDR_USER_1 votes YES on proposal 1
 vote-voter1-yes:
-	$(info ************ VOTER1 votes YES on proposal 1 ************)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER1 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER1)
+	$(info ************ ADDR_USER_1 votes YES on proposal 1 ************)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_1 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_1)
 	@echo
 
-# VOTER2 votes NO on proposal 2
+# ADDR_USER_2 votes NO on proposal 2
 vote-voter2-no:
-	$(info ************ VOTER2 votes NO on proposal 2 ************)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "VOTER2 opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER2)
+	$(info ************ ADDR_USER_2 votes NO on proposal 2 ************)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "ADDR_USER_2 opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_2)
 	@echo
 
-# VOTER3 votes ABSTAIN on proposal 3
+# ADDR_USER_3 votes ABSTAIN on proposal 3
 vote-voter3-abstain:
-	$(info ************ VOTER3 votes ABSTAIN on proposal 3 ************)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "ABSTAIN" -args "VOTER3 abstains from proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER3)
+	$(info ************ ADDR_USER_3 votes ABSTAIN on proposal 3 ************)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "ABSTAIN" -args "ADDR_USER_3 abstains from proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_3)
 	@echo
 
-# VOTER1 votes NO on proposal 2
+# ADDR_USER_1 votes NO on proposal 2
 vote-voter1-no:
-	$(info ************ VOTER1 votes NO on proposal 2 ************)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "VOTER1 opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER1)
+	$(info ************ ADDR_USER_1 votes NO on proposal 2 ************)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "ADDR_USER_1 opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_1)
 	@echo
 
-# VOTER2 votes YES on proposal 1
+# ADDR_USER_2 votes YES on proposal 1
 vote-voter2-yes:
-	$(info ************ VOTER2 votes YES on proposal 1 ************)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER2 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER2)
+	$(info ************ ADDR_USER_2 votes YES on proposal 1 ************)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_2 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_2)
 	@echo
 
-# VOTER3 votes YES on proposal 1
+# ADDR_USER_3 votes YES on proposal 1
 vote-voter3-yes:
-	$(info ************ VOTER3 votes YES on proposal 1 ************)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER3 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER3)
+	$(info ************ ADDR_USER_3 votes YES on proposal 1 ************)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_3 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_3)
 	@echo
 
 # Multi-voter test flow
 multi-voter-test: vote-voter1-yes vote-voter2-no vote-voter3-abstain vote-voter1-no vote-voter2-yes vote-voter3-yes
-	@echo "************ MULTI-VOTER TEST COMPLETE ************"
+	@echo "************ MULTI-ADDR_USER_ TEST COMPLETE ************"
 
 # All voters vote on all proposals (1, 2, 3)
 vote-all-on-all-proposals:
 	$(info ************ All voters vote on all proposals ************)
 	# Vote on proposal 1
 	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "Admin supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" gnoswap_admin
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER1 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER1)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER2 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER2)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "VOTER3 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER3)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_1 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_1)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_2 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_2)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 1 -args "YES" -args "ADDR_USER_3 supports proposal 1" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_3)
 	# Vote on proposal 2
 	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "Admin opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" gnoswap_admin
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "VOTER1 opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER1)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "VOTER2 opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER2)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "ABSTAIN" -args "VOTER3 abstains from proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER3)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "ADDR_USER_1 opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_1)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "NO" -args "ADDR_USER_2 opposes proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_2)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 2 -args "ABSTAIN" -args "ADDR_USER_3 abstains from proposal 2" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_3)
 	# Vote on proposal 3
 	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "YES" -args "Admin supports proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" gnoswap_admin
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "ABSTAIN" -args "VOTER1 abstains from proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER1)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "YES" -args "VOTER2 supports proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER2)
-	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "YES" -args "VOTER3 supports proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(VOTER3)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "ABSTAIN" -args "ADDR_USER_1 abstains from proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_1)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "YES" -args "ADDR_USER_2 supports proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_2)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/gov/governance -func Vote -args 3 -args "YES" -args "ADDR_USER_3 supports proposal 3" -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" $(ADDR_USER_3)
 	@echo
 
 # Execute the proposal
@@ -173,27 +174,27 @@ get-proposal:
 	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/gov/governance.GetProposal(1)"
 	@echo
 
-# Check VOTER1 xVLS balance
+# Check ADDR_USER_1 xVLS balance
 check-voter1-xvls:
-	$(info ************ Check VOTER1 xVLS balance ************)
-	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/gov/xvls.BalanceOf(\"$(VOTER1)\")"
+	$(info ************ Check ADDR_USER_1 xVLS balance ************)
+	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/gov/xvls.BalanceOf(\"$(ADDR_USER_1)\")"
 	@echo
 
-# Check VOTER2 xVLS balance
+# Check ADDR_USER_2 xVLS balance
 check-voter2-xvls:
-	$(info ************ Check VOTER2 xVLS balance ************)
-	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/gov/xvls.BalanceOf(\"$(VOTER2)\")"
+	$(info ************ Check ADDR_USER_2 xVLS balance ************)
+	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/gov/xvls.BalanceOf(\"$(ADDR_USER_2)\")"
 	@echo
 
-# Check VOTER3 xVLS balance
+# Check ADDR_USER_3 xVLS balance
 check-voter3-xvls:
-	$(info ************ Check VOTER3 xVLS balance ************)
-	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/gov/xvls.BalanceOf(\"$(VOTER3)\")"
+	$(info ************ Check ADDR_USER_3 xVLS balance ************)
+	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/gov/xvls.BalanceOf(\"$(ADDR_USER_3)\")"
 	@echo
 
 # Check all voters' xVLS balances
 check-all-voters-xvls: check-voter1-xvls check-voter2-xvls check-voter3-xvls
-	@echo "************ ALL VOTERS XVLS BALANCES CHECKED ************"
+	@echo "************ ALL ADDR_USER_S XVLS BALANCES CHECKED ************"
 
 # Quick verification of setup
 gov-verify: check-vls-balance check-xvls-balance check-governance-membership get-proposal check-all-voters-xvls
