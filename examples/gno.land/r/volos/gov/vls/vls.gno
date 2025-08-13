@@ -146,11 +146,11 @@ func Render(path string) string {
 }
 
 // temporary function to mint tokens for testing
-func Faucet(cur realm, to std.Address, amount int64) {
+func Faucet(cur realm, amount int64) {
 	caller := std.PreviousRealm().Address()
 	if err := ledger.Mint(caller, amount); err != nil {
 		panic(err)
 	}
 
-	emitMint(caller, to, amount)
+	emitMint(caller, caller, amount)
 }
