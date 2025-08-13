@@ -13,7 +13,8 @@ import (
 func renderHome(path string) string {
 	out := md.H1("Volos🦌")
 	out += md.Paragraph("Volos is a decentralized lending protocol built on gno.land. It enables users to lend and borrow assets through configurable markets, with real-time risk management and on-chain price oracles powered by Gnoswap pools. The protocol uses a shares-based accounting system, supports variable interest rates, and ensures solvency through continuous health monitoring and liquidation mechanisms—all within the gno.land ecosystem.")
-
+	out += "\n"
+	out += md.Paragraph("This is a minimalistic gnoweb app. To access all Volos features, please use the " + md.Link("Official Volos Website", "https://officialvolos.com") + ".")
 	out += md.H2("👤 Check Your Position")
 	out += md.Blockquote("To view your lending and borrowing positions on Volos, navigate to `?user=g1xxx` e.g. `?user=g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5`")
 
