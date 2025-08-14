@@ -6,14 +6,13 @@ import (
 )
 
 const (
-	EventProposalCreated                 = "ProposalCreated"
-	EventProposalExecuted                = "ProposalExecuted"
-	EventVoteCast                        = "VoteCast"
-	EventMemberAdded                     = "MemberAdded"
-	EventMemberRemoved                   = "MemberRemoved"
-	EventGovernanceUpdated               = "GovernanceUpdated"
-	EventVoterQuorumUpdated              = "VoterQuorumUpdated"
-	EventVotingPowerQuorumUpdated        = "VotingPowerQuorumUpdated"
+	EventProposalCreated          = "ProposalCreated"
+	EventProposalExecuted         = "ProposalExecuted"
+	EventVoteCast                 = "VoteCast"
+	EventMemberAdded              = "MemberAdded"
+	EventMemberRemoved            = "MemberRemoved"
+	EventGovernanceUpdated        = "GovernanceUpdated"
+	EventVotingPowerQuorumUpdated = "VotingPowerQuorumUpdated"
 )
 
 const (
@@ -99,16 +98,6 @@ func emitGovernanceUpdated(caller std.Address, oldPkgPath, newPkgPath string) {
 		EventCallerKey, caller.String(),
 		EventOldPkgPathKey, oldPkgPath,
 		EventNewPkgPathKey, newPkgPath,
-	)
-}
-
-// Emit voter quorum updated event
-func emitVoterQuorumUpdated(caller std.Address, oldQuorum, newQuorum int64) {
-	std.Emit(
-		EventVoterQuorumUpdated,
-		EventCallerKey, caller.String(),
-		EventOldQuorumKey, strconv.FormatInt(oldQuorum, 10),
-		EventNewQuorumKey, strconv.FormatInt(newQuorum, 10),
 	)
 }
 

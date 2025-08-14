@@ -12,16 +12,14 @@
 // are handled externally (see staker.gno).
 //
 // Quorum Requirements:
-// - Voter Quorum: Minimum number of unique voters required for a proposal to pass
 // - Voting Power Quorum: Minimum total xVLS voting power required for a proposal to pass
-// Both quorum requirements must be met for a proposal to pass, in addition to having
+// The voting power quorum requirement must be met for a proposal to pass, in addition to having
 // more YES votes than NO votes.
 //
 // Quorum Disabling:
-// - Setting a quorum to 0 or a negative value disables that quorum requirement
-// - When disabled, that quorum check is skipped during proposal tallying
-// - This allows for flexible governance configurations where only one type of quorum
-//   or no quorum requirements are needed
+// - Setting voting power quorum to 0 or a negative value disables the quorum requirement
+// - When disabled, the quorum check is skipped during proposal tallying
+// - This allows for flexible governance configurations where no quorum requirements are needed
 //
 // Use this package to manage the Volos DAO. Membership updates are automatic
 // via staking actions. See commondao.gno for core DAO logic, vls.gno/xvls.gno

@@ -16,10 +16,9 @@ import (
 )
 
 var (
-	volosGovernance          *commondao.CommonDAO
-	proposalThreshold        int64 = 1000 //min xVLS required to create a proposal
-	voterQuorum              int64 = 1    //minimum number of voters required for a proposal to pass (0 = disabled)
-	votingPowerQuorum        int64 = 1000 //minimum xVLS voting power required for a proposal to pass (0 = disabled)
+	volosGovernance   *commondao.CommonDAO
+	proposalThreshold int64 = 1000 //min xVLS required to create a proposal
+	votingPowerQuorum int64 = 1000 //minimum xVLS voting power required for a proposal to pass (0 = disabled)
 
 	authorizer = authz.NewWithAuthority(authz.NewMemberAuthority(
 		std.DerivePkgAddr("gno.land/r/volos/gov/staker"),
@@ -38,17 +37,6 @@ func init() {
 func SetProposalThreshold(newThreshold int64) {
 	authorizer.DoByCurrent("set_proposal_threshold", func() error {
 		proposalThreshold = newThreshold
-		return nil
-	})
-}
-
-// SetVoterQuorum allows governance to change the minimum number of voters required for a proposal to pass.
-func SetVoterQuorum(newQuorum int64) {
-	authorizer.DoByCurrent("set_voter_quorum", func() error {
-		oldQuorum := voterQuorum
-		voterQuorum = newQuorum
-		caller := std.PreviousRealm().Address()
-		emitVoterQuorumUpdated(caller, oldQuorum, newQuorum)
 		return nil
 	})
 }
@@ -74,19 +62,9 @@ func ProposalThreshold() int64 {
 	return proposalThreshold
 }
 
-// VoterQuorum returns the current voter quorum requirement.
-func VoterQuorum() int64 {
-	return voterQuorum
-}
-
 // VotingPowerQuorum returns the current voting power quorum requirement.
 func VotingPowerQuorum() int64 {
 	return votingPowerQuorum
-}
-
-// VoterQuorumEnabled returns whether voter quorum enforcement is enabled.
-func VoterQuorumEnabled() bool {
-	return voterQuorum > 0
 }
 
 // VotingPowerQuorumEnabled returns whether voting power quorum enforcement is enabled.

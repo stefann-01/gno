@@ -26,11 +26,10 @@ func (v VolosProposalDefinition) VotingPeriod() time.Duration { return v.VotingP
 
 // Tally implements the commondao.ProposalDefinition interface.
 // This function is used to tally the votes for the proposal meaning that all the logic for determining the result of the proposal is implemented here.
-// The result is calculated based on the voting power of the yes and no vote(r)s, and must meet both voter and voting power quorum requirements.
+// The result is calculated based on the voting power of the yes and no vote(r)s, and must meet voting power quorum requirements.
 func (v VolosProposalDefinition) Tally(r commondao.ReadonlyVotingRecord, m commondao.MemberSet) (bool, error) {
 	votePower := avl.NewTree()
 	var totalPower int64 = 0
-	var totalVoters int64 = 0
 
 	m.IterateByOffset(0, m.Size(), func(addr std.Address) bool {
 		vote, found := r.GetVote(addr)
@@ -48,15 +47,10 @@ func (v VolosProposalDefinition) Tally(r commondao.ReadonlyVotingRecord, m commo
 
 			votePower.Set(key, current+power)
 			totalPower += power
-			totalVoters++
 		}
 
 		return false
 	})
-
-	if VoterQuorumEnabled() && totalVoters < voterQuorum {
-		return false, nil
-	}
 
 	if VotingPowerQuorumEnabled() && totalPower < votingPowerQuorum {
 		return false, nil
