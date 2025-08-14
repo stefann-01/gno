@@ -16,9 +16,12 @@ import (
 )
 
 var (
-	volosGovernance   *commondao.CommonDAO
-	proposalThreshold int64 = 1000 //min xVLS required to create a proposal
-	authorizer              = authz.NewWithAuthority(authz.NewMemberAuthority(
+	volosGovernance          *commondao.CommonDAO
+	proposalThreshold        int64 = 1000 //min xVLS required to create a proposal
+	voterQuorum              int64 = 1    //minimum number of voters required for a proposal to pass (0 = disabled)
+	votingPowerQuorum        int64 = 1000 //minimum xVLS voting power required for a proposal to pass (0 = disabled)
+
+	authorizer = authz.NewWithAuthority(authz.NewMemberAuthority(
 		std.DerivePkgAddr("gno.land/r/volos/gov/staker"),
 		std.DerivePkgAddr("gno.land/r/volos/gov/governance"),
 	))
@@ -39,6 +42,28 @@ func SetProposalThreshold(newThreshold int64) {
 	})
 }
 
+// SetVoterQuorum allows governance to change the minimum number of voters required for a proposal to pass.
+func SetVoterQuorum(newQuorum int64) {
+	authorizer.DoByCurrent("set_voter_quorum", func() error {
+		oldQuorum := voterQuorum
+		voterQuorum = newQuorum
+		caller := std.PreviousRealm().Address()
+		emitVoterQuorumUpdated(caller, oldQuorum, newQuorum)
+		return nil
+	})
+}
+
+// SetVotingPowerQuorum allows governance to change the minimum xVLS voting power required for a proposal to pass.
+func SetVotingPowerQuorum(newQuorum int64) {
+	authorizer.DoByCurrent("set_voting_power_quorum", func() error {
+		oldQuorum := votingPowerQuorum
+		votingPowerQuorum = newQuorum
+		caller := std.PreviousRealm().Address()
+		emitVotingPowerQuorumUpdated(caller, oldQuorum, newQuorum)
+		return nil
+	})
+}
+
 // MemberSet returns a read-only view of the current member set for analytics and governance logic.
 func MemberSet() commondao.MemberSet {
 	return commondao.NewMemberSet(volosGovernance.Members())
@@ -47,6 +72,26 @@ func MemberSet() commondao.MemberSet {
 // ProposalThreshold returns the current proposal threshold (for internal use).
 func ProposalThreshold() int64 {
 	return proposalThreshold
+}
+
+// VoterQuorum returns the current voter quorum requirement.
+func VoterQuorum() int64 {
+	return voterQuorum
+}
+
+// VotingPowerQuorum returns the current voting power quorum requirement.
+func VotingPowerQuorum() int64 {
+	return votingPowerQuorum
+}
+
+// VoterQuorumEnabled returns whether voter quorum enforcement is enabled.
+func VoterQuorumEnabled() bool {
+	return voterQuorum > 0
+}
+
+// VotingPowerQuorumEnabled returns whether voting power quorum enforcement is enabled.
+func VotingPowerQuorumEnabled() bool {
+	return votingPowerQuorum > 0
 }
 
 // Render function for explorer integration.
