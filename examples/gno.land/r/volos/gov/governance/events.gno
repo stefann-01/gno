@@ -36,6 +36,7 @@ const (
 	EventAbstainVotesKey = "abstain_votes"
 	EventOldQuorumKey    = "old_quorum"
 	EventNewQuorumKey    = "new_quorum"
+	EventXvlsAmountKey   = "xvls_amount"
 )
 
 // Emit proposal creation event
@@ -60,7 +61,7 @@ func emitProposalExecuted(caller std.Address, proposalID uint64) {
 }
 
 // Emit vote cast event
-func emitVoteCast(caller, voter std.Address, proposalID uint64, vote, reason string) {
+func emitVoteCast(caller, voter std.Address, proposalID uint64, xvlsAmount int64, vote, reason string) {
 	std.Emit(
 		EventVoteCast,
 		EventCallerKey, caller.String(),
@@ -68,6 +69,7 @@ func emitVoteCast(caller, voter std.Address, proposalID uint64, vote, reason str
 		EventProposalIDKey, strconv.FormatUint(proposalID, 10),
 		EventVoteKey, vote,
 		EventReasonKey, reason,
+		EventXvlsAmountKey, strconv.FormatInt(xvlsAmount, 10),
 	)
 }
 
