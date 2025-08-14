@@ -21,6 +21,11 @@
 // - When disabled, the quorum check is skipped during proposal tallying
 // - This allows for flexible governance configurations where no quorum requirements are needed
 //
+// Quorum Changes:
+// - Quorum changes only apply to proposals created after the change
+// - Active proposals continue to use the quorum value that existed when they were created
+// - This ensures fairness and prevents strategic manipulation of active proposals
+//
 // Use this package to manage the Volos DAO. Membership updates are automatic
 // via staking actions. See commondao.gno for core DAO logic, vls.gno/xvls.gno
 // for token contracts, and staker.gno for staking logic.

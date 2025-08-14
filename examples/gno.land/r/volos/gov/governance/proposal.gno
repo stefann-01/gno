@@ -18,6 +18,7 @@ type VolosProposalDefinition struct {
 	BodyField         string
 	VotingPeriodField time.Duration
 	Action            func()
+	QuorumAtCreation  int64 // Store quorum value at proposal creation time
 }
 
 func (v VolosProposalDefinition) Title() string               { return v.TitleField }
@@ -52,7 +53,7 @@ func (v VolosProposalDefinition) Tally(r commondao.ReadonlyVotingRecord, m commo
 		return false
 	})
 
-	if VotingPowerQuorumEnabled() && totalPower < votingPowerQuorum {
+	if v.QuorumAtCreation > 0 && totalPower < v.QuorumAtCreation {
 		return false, nil
 	}
 
@@ -94,6 +95,7 @@ func CreateProposal(cur realm, title, body string, votingPeriod time.Duration, a
 		BodyField:         body,
 		VotingPeriodField: votingPeriod,
 		Action:            action,
+		QuorumAtCreation:  votingPowerQuorum, 
 	}
 
 	proposal := volosGovernance.MustPropose(proposer, def)

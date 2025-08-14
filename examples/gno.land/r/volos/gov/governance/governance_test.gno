@@ -379,3 +379,70 @@ func TestProposal_ExecutionLifecycle(cur realm, t *testing.T) {
 	proposal = volosGovernance.GetProposal(proposal.ID())
 	urequire.Equal(t, "passed", string(proposal.Status()))
 }
+
+func TestProposal_QuorumChangesDontAffectActiveProposals(cur realm, t *testing.T) {
+	staker := "gno.land/r/volos/gov/staker"
+	gov := "gno.land/r/volos/gov/governance"
+	alice := std.DerivePkgAddr("gno.land/r/volos/gov/alice")
+	bob := std.DerivePkgAddr("gno.land/r/volos/gov/bob")
+
+	crossThrough(std.NewCodeRealm(gov), func() {
+		SetProposalThreshold(100)
+		SetVotingPowerQuorum(1000)
+	})
+
+	crossThrough(std.NewCodeRealm(staker), func() {
+		xvls.Burn(cross, alice, xvls.BalanceOf(alice))
+		xvls.Burn(cross, bob, xvls.BalanceOf(bob))
+		xvls.Mint(cross, alice, 2000)
+		xvls.Mint(cross, bob, 2000)
+		AddMember(cross, alice)
+		AddMember(cross, bob)
+	})
+
+	var proposalId uint64
+	crossThrough(std.NewUserRealm(alice), func() {
+		proposalId = CreateProposal(cross, "Quorum Change Test", "Body", time.Second*10, func() {}).ID()
+	})
+
+	crossThrough(std.NewUserRealm(alice), func() {
+		Vote(cross, proposalId, "YES", "For!")
+	})
+	crossThrough(std.NewUserRealm(bob), func() {
+		Vote(cross, proposalId, "YES", "For!")
+	})
+
+	proposal := volosGovernance.GetProposal(proposalId)
+	pass, err := proposal.Definition().(VolosProposalDefinition).Tally(proposal.VotingRecord().Readonly(), MemberSet())
+	urequire.NoError(t, err)
+	urequire.True(t, pass, "proposal should pass with original quorum (4000 > 1000)")
+
+	crossThrough(std.NewCodeRealm(gov), func() {
+		SetVotingPowerQuorum(10000)
+	})
+
+	pass, err = proposal.Definition().(VolosProposalDefinition).Tally(proposal.VotingRecord().Readonly(), MemberSet())
+	urequire.NoError(t, err)
+	urequire.True(t, pass, "proposal should still pass even after quorum change (uses original quorum)")
+
+	var newProposalId uint64
+	crossThrough(std.NewUserRealm(alice), func() {
+		newProposalId = CreateProposal(cross, "New Quorum Test", "Body", time.Second*10, func() {}).ID()
+	})
+
+	crossThrough(std.NewUserRealm(alice), func() {
+		Vote(cross, newProposalId, "YES", "For!")
+	})
+	crossThrough(std.NewUserRealm(bob), func() {
+		Vote(cross, newProposalId, "YES", "For!")
+	})
+
+	newProposal := volosGovernance.GetProposal(newProposalId)
+	pass, err = newProposal.Definition().(VolosProposalDefinition).Tally(newProposal.VotingRecord().Readonly(), MemberSet())
+	urequire.NoError(t, err)
+	urequire.False(t, pass, "new proposal should fail with new quorum (4000 < 10000)")
+
+	crossThrough(std.NewCodeRealm(gov), func() {
+		SetVotingPowerQuorum(1000)
+	})
+}
