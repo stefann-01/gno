@@ -36,7 +36,10 @@ func init() {
 // SetProposalThreshold allows governance to change the minimum xVLS required to propose.
 func SetProposalThreshold(newThreshold int64) {
 	authorizer.DoByCurrent("set_proposal_threshold", func() error {
+		oldThreshold := proposalThreshold
 		proposalThreshold = newThreshold
+		caller := std.PreviousRealm().Address()
+		emitProposalThresholdUpdated(caller, oldThreshold, newThreshold)
 		return nil
 	})
 }

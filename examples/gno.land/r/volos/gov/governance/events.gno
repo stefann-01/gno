@@ -13,6 +13,7 @@ const (
 	EventMemberRemoved            = "MemberRemoved"
 	EventGovernanceUpdated        = "GovernanceUpdated"
 	EventVotingPowerQuorumUpdated = "VotingPowerQuorumUpdated"
+	EventProposalThresholdUpdated = "ProposalThresholdUpdated"
 )
 
 const (
@@ -36,7 +37,11 @@ const (
 	EventAbstainVotesKey = "abstain_votes"
 	EventOldQuorumKey    = "old_quorum"
 	EventNewQuorumKey    = "new_quorum"
+	EventOldThresholdKey = "old_threshold"
+	EventNewThresholdKey = "new_threshold"
 	EventXvlsAmountKey   = "xvls_amount"
+	EventQuorumEnabledKey = "quorum_enabled"
+	EventThresholdEnabledKey = "threshold_enabled"
 )
 
 // Emit proposal creation event
@@ -110,5 +115,17 @@ func emitVotingPowerQuorumUpdated(caller std.Address, oldQuorum, newQuorum int64
 		EventCallerKey, caller.String(),
 		EventOldQuorumKey, strconv.FormatInt(oldQuorum, 10),
 		EventNewQuorumKey, strconv.FormatInt(newQuorum, 10),
+	)
+}
+
+// Emit proposal threshold updated event
+func emitProposalThresholdUpdated(caller std.Address, oldThreshold, newThreshold int64) {
+	std.Emit(
+		EventProposalThresholdUpdated,
+		EventCallerKey, caller.String(),
+		EventOldThresholdKey, strconv.FormatInt(oldThreshold, 10),
+		EventNewThresholdKey, strconv.FormatInt(newThreshold, 10),
+		EventTimestampKey, strconv.FormatInt(std.GetHeight(), 10),
+		EventThresholdEnabledKey, strconv.FormatBool(newThreshold > 0),
 	)
 }
