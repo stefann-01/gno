@@ -100,7 +100,7 @@ func CreateProposal(cur realm, title, body string, votingPeriod time.Duration, a
 
 	proposal := volosGovernance.MustPropose(proposer, def)
 	deadline := time.Now().Add(votingPeriod).Unix()
-	emitProposalCreated(proposer, proposal.ID(), title, body, deadline)
+	emitProposalCreated(proposer, proposal.ID(), title, body, deadline, proposalThreshold)
 	return proposal
 }
 

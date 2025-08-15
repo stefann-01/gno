@@ -39,13 +39,14 @@ const (
 	EventNewQuorumKey    = "new_quorum"
 	EventOldThresholdKey = "old_threshold"
 	EventNewThresholdKey = "new_threshold"
+	EventThresholdKey    = "threshold"
 	EventXvlsAmountKey   = "xvls_amount"
 	EventQuorumEnabledKey = "quorum_enabled"
 	EventThresholdEnabledKey = "threshold_enabled"
 )
 
 // Emit proposal creation event
-func emitProposalCreated(caller std.Address, proposalID uint64, title, body string, deadline int64) {
+func emitProposalCreated(caller std.Address, proposalID uint64, title, body string, deadline, threshold int64) {
 	std.Emit(
 		EventProposalCreated,
 		EventCallerKey, caller.String(),
@@ -53,6 +54,7 @@ func emitProposalCreated(caller std.Address, proposalID uint64, title, body stri
 		EventTitleKey, title,
 		EventBodyKey, body,
 		EventDeadlineKey, strconv.FormatInt(deadline, 10),
+		EventThresholdKey, strconv.FormatInt(threshold, 10),
 	)
 }
 
@@ -125,7 +127,5 @@ func emitProposalThresholdUpdated(caller std.Address, oldThreshold, newThreshold
 		EventCallerKey, caller.String(),
 		EventOldThresholdKey, strconv.FormatInt(oldThreshold, 10),
 		EventNewThresholdKey, strconv.FormatInt(newThreshold, 10),
-		EventTimestampKey, strconv.FormatInt(std.GetHeight(), 10),
-		EventThresholdEnabledKey, strconv.FormatBool(newThreshold > 0),
 	)
 }
