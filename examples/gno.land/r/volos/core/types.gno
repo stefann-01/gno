@@ -1,4 +1,4 @@
-package volos
+package core
 
 import (
 	u256 "gno.land/p/gnoswap/uint256"

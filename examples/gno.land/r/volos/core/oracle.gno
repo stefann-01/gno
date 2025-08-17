@@ -1,8 +1,10 @@
-package volos
+package core
 
 import (
 	u256 "gno.land/p/gnoswap/uint256"
 	"gno.land/r/gnoswap/v1/pool"
+	"gno.land/p/volos/consts"
+	"gno.land/p/volos/math"
 )
 
 // GetPrice returns the price from a Gnoswap pool
@@ -24,13 +26,13 @@ func GetPrice(poolPath string) *u256.Uint {
 	priceQ192 := new(u256.Uint).Mul(sqrtPriceX96, sqrtPriceX96)
 
 	// Finally divide by Q192 to get the actual price ratio with ORACLE_PRICE_SCALE precision
-	price := MulDivDown(priceQ192, ORACLE_PRICE_SCALE, Q192)
+	price := math.MulDivDown(priceQ192, consts.ORACLE_PRICE_SCALE, consts.Q192)
 
 	// If token0 is the loan token, we need to invert the price
 	// because Gnoswap's price is always token1/token0
 	if params.IsToken0Loan {
 		// Invert price: ORACLE_PRICE_SCALE² / price
-		price = MulDivDown(ORACLE_PRICE_SCALE, ORACLE_PRICE_SCALE, price)
+		price = math.MulDivDown(consts.ORACLE_PRICE_SCALE, consts.ORACLE_PRICE_SCALE, price)
 	}
 
 	return price

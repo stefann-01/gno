@@ -16,7 +16,7 @@ var borrower *FlashBorrowerMock
 
 func init() {
 	borrower = &FlashBorrowerMock{
-		volosAddr: std.DerivePkgAddr("gno.land/r/volos"),
+		volosAddr: std.DerivePkgAddr("gno.land/r/volos/core"),
 	}
 }
 
