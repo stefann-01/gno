@@ -72,9 +72,6 @@ func RegisterIRM(cur realm, irm IRM) {
 /* GOVERNANCE FUNCTIONS */
 
 func EnableIRM(cur realm, irm string) {
-	print("Current realm:", std.CurrentRealm().Address())
-	print("Previous realm:", std.PreviousRealm().Address())
-	print("Owner:", Ownable.Owner())
 	Ownable.AssertOwnedByPrevious()
 
 	// Check if IRM exists in registry
@@ -282,7 +279,7 @@ func SupplyOnBehalf(cur realm, marketId string, assets, shares uint64, onBehalf 
 	// Handle token transfer using GRC20 interface
 	safeTransferFrom(params.GetLoanToken(), caller, assetsU256.Int64())
 
-	emitSupply(marketId, caller, onBehalf, assetsU256)
+	emitSupply(marketId, caller, onBehalf, assetsU256, sharesToMint)
 }
 
 // Withdraw tokens from a market
@@ -367,7 +364,7 @@ func WithdrawOnBehalf(cur realm, marketId string, assets, shares uint64, onBehal
 	// Handle token transfer using GRC20 interface (to receiver, not caller)
 	safeTransferTo(params.GetLoanToken(), receiver, assetsU256.Int64())
 
-	emitWithdraw(marketId, caller, onBehalf, receiver, assetsU256)
+	emitWithdraw(marketId, caller, onBehalf, receiver, assetsU256, sharesToBurn)
 }
 
 /* BORROW MANAGEMENT */
@@ -460,7 +457,7 @@ func BorrowOnBehalf(cur realm, marketId string, assets, shares uint64, onBehalf 
 	// Transfer borrowed tokens to receiver
 	safeTransferTo(params.GetLoanToken(), receiver, assetsU256.Int64())
 
-	emitBorrow(marketId, caller, onBehalf, receiver, assetsU256)
+	emitBorrow(marketId, caller, onBehalf, receiver, assetsU256, sharesToMint)
 }
 
 // Repay borrowed tokens to a market
