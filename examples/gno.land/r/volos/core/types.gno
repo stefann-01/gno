@@ -27,7 +27,7 @@ type Position struct {
 type MarketParams struct {
 	PoolPath     string     // Gnoswap pool path (e.g. "token0:token1:3000") - also used as oracle
 	IRM          string     // Interest Rate Model path
-	LLTV         *u256.Uint // Liquidation Loan-to-Value ratio as a percentage
+	LLTV         *u256.Uint // Liquidation Loan-to-Value ratio (WAD-scaled, e.g., 75% = 0.75 * 1e18)
 	IsToken0Loan bool       // Whether token0 is the loan token (if false, token1 is the loan token)
 }
 
@@ -67,6 +67,6 @@ type IRM interface {
 // FlashLoanCallback interface that users willing to use flash loans must implement
 type FlashLoanCallback interface {
 	// OnVolosFlashLoan is called when a flash loan occurs
-	OnVolosFlashLoan(cur realm, assets int64, data []byte)
+	OnVolosFlashLoan(cur realm, assets int64, data any)
 }
 

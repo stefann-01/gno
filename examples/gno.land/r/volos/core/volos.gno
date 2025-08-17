@@ -896,7 +896,7 @@ func isHealthy(marketId string, userAddr string) bool {
 /* FLASH LOANS */
 
 // FlashLoan allows users to borrow assets without collateral, provided they are repaid within the same transaction
-func FlashLoan(cur realm, token string, assets int64, data []byte, callback FlashLoanCallback) {
+func FlashLoan(cur realm, token string, assets int64, data any, callback FlashLoanCallback) {
 	if assets == 0 {
 		panic(ErrZeroAssets)
 	}
