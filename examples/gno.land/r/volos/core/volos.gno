@@ -887,7 +887,7 @@ func isHealthy(marketId string, userAddr string) bool {
 		market.TotalBorrowShares,
 	)
 
-	collateralPrice := GetPrice(params.PoolPath)
+	collateralPrice := GetPrice(marketId)
 
 	// Calculate max borrow allowed
 	maxBorrow := math.WMulDown(math.MulDivDown(position.Collateral, collateralPrice, consts.ORACLE_PRICE_SCALE), params.LLTV)

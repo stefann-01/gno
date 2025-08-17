@@ -9,12 +9,12 @@ import (
 
 // GetPrice returns the price from a Gnoswap pool
 // The price is returned as a sqrtPriceX96e36 (36 decimals) in terms of loan token per collateral token
-func GetPrice(poolPath string) *u256.Uint {
+func GetPrice(marketId string) *u256.Uint {
 	// Get market params to determine token ordering
-	_, params := GetMarket(poolPath)
+	_, params := GetMarket(marketId)
 
 	// Get the sqrt price from the pool
-	sqrtPriceX96Str := pool.PoolGetSlot0SqrtPriceX96(poolPath)
+	sqrtPriceX96Str := pool.PoolGetSlot0SqrtPriceX96(params.PoolPath)
 	if sqrtPriceX96Str == "" {
 		panic(ErrPriceNotAvailable)
 	}

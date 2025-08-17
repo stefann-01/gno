@@ -108,8 +108,6 @@ func safeTransferTo(tokenPath string, to std.Address, amount int64) {
 	}
 }
 
-
-
 // Helper function to check if two tokens exist together in a Gnoswap pool
 func areTokensPairedInGnoswap(token0, token1 string) bool {
 	poolPaths := pool.PoolGetPoolList()

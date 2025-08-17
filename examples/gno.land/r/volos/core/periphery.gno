@@ -231,7 +231,7 @@ func CalculateHealthFactor(marketId string, userAddr string) *u256.Uint {
 		return u256.Zero()
 	}
 
-	collateralPrice := GetPrice(params.PoolPath)
+	collateralPrice := GetPrice(marketId)
 
 	// Calculate max borrow allowed
 	maxBorrow := math.WMulDown(math.MulDivDown(position.Collateral, collateralPrice, consts.ORACLE_PRICE_SCALE), params.LLTV)

@@ -27,13 +27,16 @@ type Position struct {
 type MarketParams struct {
 	PoolPath     string     // Gnoswap pool path (e.g. "token0:token1:3000") - also used as oracle
 	IRM          string     // Interest Rate Model path
-	LLTV         *u256.Uint // Liquidation Loan-to-Value ratio as a percentage (e.g. 75 means 75%)
+	LLTV         *u256.Uint // Liquidation Loan-to-Value ratio as a percentage
 	IsToken0Loan bool       // Whether token0 is the loan token (if false, token1 is the loan token)
 }
 
 // ID generates a unique identifier for a market using the Gnoswap pool path
 func (mp *MarketParams) ID() string {
-	return mp.PoolPath
+	if mp.IsToken0Loan {
+		return mp.PoolPath + ":1"
+	}
+	return mp.PoolPath + ":0"
 }
 
 // GetLoanToken returns the loan token path from the pool path
