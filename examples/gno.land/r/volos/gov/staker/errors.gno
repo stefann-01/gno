@@ -10,4 +10,5 @@ var (
 	ErrInsufficientAllowance = errors.New("insufficient allowance")
 	ErrInsufficientBalance   = errors.New("insufficient balance")
 	ErrCooldownNotFinished   = errors.New("cooldown not finished")
+	ErrInsufficientDelegation = errors.New("insufficient delegation")
 )

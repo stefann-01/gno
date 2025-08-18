@@ -39,7 +39,7 @@ func emitStake(caller, staker, delegatee std.Address, amount int64) {
 		EventStakerKey, staker.String(),
 		EventDelegateeKey, delegatee.String(),
 		EventAmountKey, strconv.FormatInt(amount, 10),
-		EventCooldownPeriodKey, strconv.FormatInt(UnstakeLockPeriod, 10),
+		EventCooldownPeriodKey, strconv.FormatInt(UnstakeLockPeriod(), 10),
 		EventTimestampKey, strconv.FormatInt(time.Now().Unix(), 10),
 	)
 }
@@ -53,7 +53,7 @@ func emitBeginUnstake(caller, staker, delegatee std.Address, amount int64, unloc
 		EventDelegateeKey, delegatee.String(),
 		EventAmountKey, strconv.FormatInt(amount, 10),
 		EventUnlockAtKey, strconv.FormatInt(unlockAt, 10),
-		EventCooldownPeriodKey, strconv.FormatInt(UnstakeLockPeriod, 10),
+		EventCooldownPeriodKey, strconv.FormatInt(UnstakeLockPeriod(), 10),
 		EventTimestampKey, strconv.FormatInt(time.Now().Unix(), 10),
 	)
 }

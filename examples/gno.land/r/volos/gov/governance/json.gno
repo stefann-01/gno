@@ -107,3 +107,31 @@ func (r RpcUserInfo) JSON() *json.Node {
 		"isMember":          json.BoolNode("isMember", r.IsMember),
 	})
 }
+
+// RpcUserActiveVotes lists active proposals a user voted on
+type RpcUserActiveVotes struct {
+	User      string          `json:"user"`
+	Proposals []RpcProposal   `json:"proposals"`
+}
+
+func UserActiveVotesToRpc(user std.Address, proposals []*commondao.Proposal) RpcUserActiveVotes {
+	items := make([]RpcProposal, 0, len(proposals))
+	for _, p := range proposals {
+		items = append(items, ProposalToRpc(p))
+	}
+	return RpcUserActiveVotes{
+		User:      user.String(),
+		Proposals: items,
+	}
+}
+
+func (r RpcUserActiveVotes) JSON() *json.Node {
+	arr := []*json.Node{}
+	for _, p := range r.Proposals {
+		arr = append(arr, p.JSON())
+	}
+	return json.ObjectNode("userActiveVotes", map[string]*json.Node{
+		"user":      json.StringNode("user", r.User),
+		"proposals": json.ArrayNode("proposals", arr),
+	})
+}
