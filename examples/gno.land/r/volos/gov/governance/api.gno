@@ -1,9 +1,10 @@
 package governance
 
 import (
-	"gno.land/p/demo/json"
-	"strconv"
 	"std"
+	"strconv"
+
+	"gno.land/p/demo/json"
 )
 
 // ApiGetProposal returns a proposal as JSON string
@@ -12,12 +13,12 @@ func ApiGetProposal(proposalID string) string {
 	if err != nil {
 		return marshalError("invalid proposal ID")
 	}
-	
+
 	proposal := GetProposal(id)
 	if proposal == nil {
 		return marshalError("proposal not found")
 	}
-	
+
 	rpcProposal := ProposalToRpc(proposal)
 	return marshal(rpcProposal.JSON())
 }
@@ -53,7 +54,7 @@ func ApiGetUserInfo(userAddr string) string {
 	if !addr.IsValid() {
 		return marshalError("invalid address")
 	}
-	
+
 	userInfo := UserInfoToRpc(addr)
 	return marshal(userInfo.JSON())
 }

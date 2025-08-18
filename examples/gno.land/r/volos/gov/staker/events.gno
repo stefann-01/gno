@@ -15,20 +15,20 @@ const (
 )
 
 const (
-	EventStakerKey     = "staker"
-	EventDelegateeKey  = "delegatee"
-	EventAmountKey     = "amount"
-	EventUnlockAtKey   = "unlock_at"
-	EventMemberKey     = "member"
-	EventTotalWithdrawnKey = "total_withdrawn"
+	EventStakerKey            = "staker"
+	EventDelegateeKey         = "delegatee"
+	EventAmountKey            = "amount"
+	EventUnlockAtKey          = "unlock_at"
+	EventMemberKey            = "member"
+	EventTotalWithdrawnKey    = "total_withdrawn"
 	EventRemainingUnstakesKey = "remaining_unstakes"
-	EventCallerKey     = "caller"
-	EventTimestampKey  = "timestamp"
-	EventCooldownPeriodKey = "cooldown_period"
-	EventPendingUnstakesKey = "pending_unstakes"
-	EventVlsBalanceKey = "vls_balance"
-	EventXvlsBalanceKey = "xvls_balance"
-	EventUnstakeInfoKey = "unstake_info"
+	EventCallerKey            = "caller"
+	EventTimestampKey         = "timestamp"
+	EventCooldownPeriodKey    = "cooldown_period"
+	EventPendingUnstakesKey   = "pending_unstakes"
+	EventVlsBalanceKey        = "vls_balance"
+	EventXvlsBalanceKey       = "xvls_balance"
+	EventUnstakeInfoKey       = "unstake_info"
 )
 
 // emitStake emits an event when VLS tokens are staked
@@ -88,4 +88,4 @@ func emitMemberRemoved(caller, member std.Address) {
 		EventMemberKey, member.String(),
 		EventTimestampKey, strconv.FormatInt(time.Now().Unix(), 10),
 	)
-} 
+}

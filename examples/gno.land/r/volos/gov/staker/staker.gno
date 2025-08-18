@@ -31,7 +31,7 @@ var (
 	unstakeLockPeriod = int64(7 * 24 * 60 * 60) // 7 days cooldown for unstaking
 	pendingUnstakes   = avl.NewTree()           // staker address (string) -> []UnstakeInfo
 	delegations       = avl.NewTree()           // staker address (string) -> avl.Tree(delegatee address (string) -> int64 amount)
-	
+
 	authorizer = authz.NewWithMembers(std.DerivePkgAddr("gno.land/r/volos/gov/governance"))
 )
 
@@ -54,9 +54,9 @@ func Stake(cur realm, amount int64, delegatee std.Address) {
 	vls.TransferFrom(cross, caller, std.CurrentRealm().Address(), amount)
 	xvls.Mint(cross, delegatee, amount)
 	governance.AddMember(cross, delegatee)
-	
+
 	updateDelegation(caller, delegatee, amount)
-	
+
 	emitStake(caller, caller, delegatee, amount)
 	emitMemberAdded(caller, delegatee)
 }
@@ -101,7 +101,7 @@ func BeginUnstake(cur realm, amount int64, delegatee std.Address) {
 
 	baseUnlockAt := time.Now().Unix() + unstakeLockPeriod
 	unlockAt := calculateUnlockTime(delegatee, baseUnlockAt)
-	
+
 	list = append(list, UnstakeInfo{
 		Amount:    amount,
 		UnlockAt:  unlockAt,
@@ -109,7 +109,7 @@ func BeginUnstake(cur realm, amount int64, delegatee std.Address) {
 	})
 
 	pendingUnstakes.Set(key, list)
-	
+
 	emitBeginUnstake(caller, caller, delegatee, amount, unlockAt)
 }
 
@@ -150,7 +150,7 @@ func WithdrawUnstaked(cur realm) {
 	} else {
 		pendingUnstakes.Set(key, remaining)
 	}
-	
+
 	emitWithdraw(caller, caller, totalToWithdraw, len(remaining))
 }
 
@@ -168,18 +168,17 @@ func SetUnstakeLockPeriod(cur realm, newPeriod int64) {
 func GetDelegatedAmount(staker, delegatee std.Address) int64 {
 	stakerKey := staker.String()
 	delegateeKey := delegatee.String()
-	
+
 	stakerDelegationsAny, ok := delegations.Get(stakerKey)
 	if !ok {
 		return 0
 	}
-	
+
 	stakerDelegations := stakerDelegationsAny.(*avl.Tree)
 	amountAny, ok := stakerDelegations.Get(delegateeKey)
 	if !ok {
 		return 0
 	}
-	
+
 	return amountAny.(int64)
 }
-

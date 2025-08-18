@@ -217,13 +217,13 @@ func TestDelegationMapping_BasicTracking(cur realm, t *testing.T) {
 	testing.SetRealm(std.NewUserRealm(alice))
 	crossThrough(std.NewUserRealm(alice), func() {
 		vls.Approve(cross, std.DerivePkgAddr("gno.land/r/volos/gov/staker"), 1000)
-		
+
 		Stake(cross, 600, alice)
 		urequire.Equal(t, int64(600), GetDelegatedAmount(alice, alice))
-		
+
 		Stake(cross, 200, bob)
 		urequire.Equal(t, int64(200), GetDelegatedAmount(alice, bob))
-		
+
 		Stake(cross, 200, charlie)
 		urequire.Equal(t, int64(200), GetDelegatedAmount(alice, charlie))
 	})
@@ -231,7 +231,7 @@ func TestDelegationMapping_BasicTracking(cur realm, t *testing.T) {
 	urequire.Equal(t, int64(600), GetDelegatedAmount(alice, alice))
 	urequire.Equal(t, int64(200), GetDelegatedAmount(alice, bob))
 	urequire.Equal(t, int64(200), GetDelegatedAmount(alice, charlie))
-	
+
 	urequire.Equal(t, int64(0), GetDelegatedAmount(bob, alice))
 	urequire.Equal(t, int64(0), GetDelegatedAmount(charlie, alice))
 }
@@ -300,14 +300,14 @@ func TestDelegationMapping_MultipleStakersToSameDelegatee(cur realm, t *testing.
 		vls.Approve(cross, std.DerivePkgAddr("gno.land/r/volos/gov/staker"), 1000)
 		Stake(cross, 600, charlie)
 	})
-	
+
 	crossThrough(std.NewUserRealm(bob), func() {
 		vls.Approve(cross, std.DerivePkgAddr("gno.land/r/volos/gov/staker"), 1000)
 		Stake(cross, 400, charlie)
 	})
 
 	urequire.Equal(t, int64(1000), xvls.BalanceOf(charlie))
-	
+
 	urequire.Equal(t, int64(600), GetDelegatedAmount(alice, charlie))
 	urequire.Equal(t, int64(400), GetDelegatedAmount(bob, charlie))
 	urequire.Equal(t, int64(0), GetDelegatedAmount(charlie, charlie))
@@ -315,7 +315,7 @@ func TestDelegationMapping_MultipleStakersToSameDelegatee(cur realm, t *testing.
 	crossThrough(std.NewUserRealm(alice), func() {
 		BeginUnstake(cross, 300, charlie)
 	})
-	
+
 	urequire.Equal(t, int64(700), xvls.BalanceOf(charlie))
 	urequire.Equal(t, int64(300), GetDelegatedAmount(alice, charlie))
 	urequire.Equal(t, int64(400), GetDelegatedAmount(bob, charlie))
@@ -343,14 +343,14 @@ func TestDelegationMapping_CompleteUnstakeAndRedelegate(cur realm, t *testing.T)
 
 	crossThrough(std.NewUserRealm(alice), func() {
 		vls.Approve(cross, std.DerivePkgAddr("gno.land/r/volos/gov/staker"), 1000)
-		
+
 		Stake(cross, 500, bob)
 		urequire.Equal(t, int64(500), GetDelegatedAmount(alice, bob))
-		
+
 		BeginUnstake(cross, 500, bob)
 		urequire.Equal(t, int64(0), GetDelegatedAmount(alice, bob))
 		urequire.Equal(t, int64(0), xvls.BalanceOf(bob))
-		
+
 		Stake(cross, 300, bob)
 		urequire.Equal(t, int64(300), GetDelegatedAmount(alice, bob))
 		urequire.Equal(t, int64(300), xvls.BalanceOf(bob))
@@ -359,24 +359,24 @@ func TestDelegationMapping_CompleteUnstakeAndRedelegate(cur realm, t *testing.T)
 
 func TestUnstakeLockPeriod_GetterAndSetter(cur realm, t *testing.T) {
 	gov := "gno.land/r/volos/gov/governance"
-	
+
 	urequire.Equal(t, int64(7*24*60*60), UnstakeLockPeriod())
-	
+
 	crossThrough(std.NewCodeRealm(gov), func() {
-		SetUnstakeLockPeriod(cross, 14 * 24 * 60 * 60)
+		SetUnstakeLockPeriod(cross, 14*24*60*60)
 	})
 	urequire.Equal(t, int64(14*24*60*60), UnstakeLockPeriod())
-	
+
 	alice := std.DerivePkgAddr("alice_unauthorized")
 	crossThrough(std.NewUserRealm(alice), func() {
 		uassert.AbortsWithMessage(t, "unauthorized", func() {
-			SetUnstakeLockPeriod(cross, 1 * 24 * 60 * 60)
+			SetUnstakeLockPeriod(cross, 1*24*60*60)
 		})
 	})
 	urequire.Equal(t, int64(14*24*60*60), UnstakeLockPeriod())
-	
+
 	crossThrough(std.NewCodeRealm(gov), func() {
-		SetUnstakeLockPeriod(cross, 7 * 24 * 60 * 60)
+		SetUnstakeLockPeriod(cross, 7*24*60*60)
 	})
 	urequire.Equal(t, int64(7*24*60*60), UnstakeLockPeriod())
 }

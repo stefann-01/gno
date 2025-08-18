@@ -95,7 +95,7 @@ func CreateProposal(cur realm, title, body string, votingPeriod time.Duration, a
 		BodyField:         body,
 		VotingPeriodField: votingPeriod,
 		Action:            action,
-		QuorumAtCreation:  votingPowerQuorum, 
+		QuorumAtCreation:  votingPowerQuorum,
 	}
 
 	proposal := volosGovernance.MustPropose(proposer, def)
