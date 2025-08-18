@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gno.land/p/demo/avl"
+	"gno.land/p/demo/avl/rotree"
 	"gno.land/p/moul/authz"
 	"gno.land/r/volos/gov/governance"
 	"gno.land/r/volos/gov/vls"
@@ -37,6 +38,17 @@ var (
 
 func UnstakeLockPeriod() int64 {
 	return unstakeLockPeriod
+}
+
+// Delegations returns a read-only view of all delegations.
+// The tree structure is: staker address (string) -> *rotree.ReadOnlyTree(delegatee address (string) -> int64 amount)
+func Delegations() *rotree.ReadOnlyTree {
+	makeEntrySafeFn := func(v any) any {
+		delegationTree := v.(*avl.Tree)
+		return rotree.Wrap(delegationTree, nil)
+	}
+	
+	return rotree.Wrap(delegations, makeEntrySafeFn)
 }
 
 // Stake locks VLS tokens from the caller and mints an equal amount of xVLS to the specified delegatee.
