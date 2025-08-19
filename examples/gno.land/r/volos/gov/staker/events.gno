@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// Events
 const (
 	EventStake         = "Stake"
 	EventBeginUnstake  = "BeginUnstake"
@@ -14,6 +15,7 @@ const (
 	EventMemberRemoved = "MemberRemoved"
 )
 
+// Attribute key names
 const (
 	EventStakerKey            = "staker"
 	EventDelegateeKey         = "delegatee"
@@ -31,7 +33,6 @@ const (
 	EventUnstakeInfoKey       = "unstake_info"
 )
 
-// emitStake emits an event when VLS tokens are staked
 func emitStake(caller, staker, delegatee std.Address, amount int64) {
 	std.Emit(
 		EventStake,
@@ -44,7 +45,6 @@ func emitStake(caller, staker, delegatee std.Address, amount int64) {
 	)
 }
 
-// emitBeginUnstake emits an event when unstaking begins
 func emitBeginUnstake(caller, staker, delegatee std.Address, amount int64, unlockAt int64) {
 	std.Emit(
 		EventBeginUnstake,
@@ -58,7 +58,6 @@ func emitBeginUnstake(caller, staker, delegatee std.Address, amount int64, unloc
 	)
 }
 
-// emitWithdraw emits an event when unstaked VLS tokens are withdrawn
 func emitWithdraw(caller, staker std.Address, totalWithdrawn int64, remainingUnstakes int) {
 	std.Emit(
 		EventWithdraw,
@@ -70,7 +69,6 @@ func emitWithdraw(caller, staker std.Address, totalWithdrawn int64, remainingUns
 	)
 }
 
-// emitMemberAdded emits an event when a member is added to governance
 func emitMemberAdded(caller, member std.Address) {
 	std.Emit(
 		EventMemberAdded,
@@ -80,7 +78,6 @@ func emitMemberAdded(caller, member std.Address) {
 	)
 }
 
-// emitMemberRemoved emits an event when a member is removed from governance
 func emitMemberRemoved(caller, member std.Address) {
 	std.Emit(
 		EventMemberRemoved,

@@ -29,7 +29,7 @@ type UnstakeInfo struct {
 }
 
 var (
-	unstakeLockPeriod = int64(7 * 24 * 60 * 60) // 7 days cooldown for unstaking
+	unstakeLockPeriod = int64(7 * 24 * 60 * 60) // 7 days cooldown for unstakings
 	pendingUnstakes   = avl.NewTree()           // staker address (string) -> []UnstakeInfo
 	delegations       = avl.NewTree()           // staker address (string) -> avl.Tree(delegatee address (string) -> int64 amount)
 
