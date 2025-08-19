@@ -138,7 +138,7 @@ func WithdrawUnstaked(cur realm) {
 	key := caller.String()
 	infoAny, ok := pendingUnstakes.Get(key)
 	if !ok {
-		panic(ErrCooldownNotFinished)
+		panic(ErrNoReadyUnstake)
 	}
 
 	list := infoAny.([]UnstakeInfo)
