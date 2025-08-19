@@ -3,6 +3,7 @@ package staker
 import (
 	"std"
 	"strconv"
+	"strings"
 	"time"
 
 	"gno.land/p/demo/seqid"
@@ -27,6 +28,7 @@ const (
 	EventMemberKey            = "member"
 	EventTotalWithdrawnKey    = "total_withdrawn"
 	EventRemainingUnstakesKey = "remaining_unstakes"
+	EventWithdrawnUnstakeIDsKey = "withdrawn_unstake_ids"
 	EventCallerKey            = "caller"
 	EventTimestampKey         = "timestamp"
 	EventCooldownPeriodKey    = "cooldown_period"
@@ -62,13 +64,14 @@ func emitBeginUnstake(caller, staker, delegatee std.Address, amount int64, unloc
 	)
 }
 
-func emitWithdraw(caller, staker std.Address, totalWithdrawn int64, remainingUnstakes int) {
+func emitWithdraw(caller, staker std.Address, totalWithdrawn int64, remainingUnstakes int, withdrawnIDs []string) {
 	std.Emit(
 		EventWithdraw,
 		EventCallerKey, caller.String(),
 		EventStakerKey, staker.String(),
 		EventTotalWithdrawnKey, strconv.FormatInt(totalWithdrawn, 10),
 		EventRemainingUnstakesKey, strconv.Itoa(remainingUnstakes),
+		EventWithdrawnUnstakeIDsKey, strings.Join(withdrawnIDs, ","),
 		EventTimestampKey, strconv.FormatInt(time.Now().Unix(), 10),
 	)
 }

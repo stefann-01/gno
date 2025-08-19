@@ -145,12 +145,14 @@ func WithdrawUnstaked(cur realm) {
 	var (
 		remaining       []UnstakeInfo
 		totalToWithdraw int64 = 0
+		withdrawnIDs    []string
 	)
 
 	now := time.Now().Unix()
 	for _, info := range list {
 		if now >= info.UnlockAt {
 			totalToWithdraw += info.Amount
+			withdrawnIDs = append(withdrawnIDs, info.ID.String())
 		} else {
 			remaining = append(remaining, info)
 		}
@@ -168,7 +170,7 @@ func WithdrawUnstaked(cur realm) {
 		pendingUnstakes.Set(key, remaining)
 	}
 
-	emitWithdraw(caller, caller, totalToWithdraw, len(remaining))
+	emitWithdraw(caller, caller, totalToWithdraw, len(remaining), withdrawnIDs)
 }
 
 // SetUnstakeLockPeriod allows governance to change the unstake lock period.
