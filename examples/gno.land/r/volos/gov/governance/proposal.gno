@@ -118,7 +118,13 @@ func Execute(cur realm, proposalID uint64) {
 		panic(err)
 	}
 
-	emitProposalExecuted(caller, proposalID)
+	// Get the proposal to access its status after execution
+	proposal := volosGovernance.GetProposal(proposalID)
+	if proposal == nil {
+		panic("proposal not found after execution")
+	}
+
+	emitProposalExecuted(caller, proposalID, string(proposal.Status()))
 }
 
 // GetUserActiveProposals returns all active proposals that the given user has voted on.
