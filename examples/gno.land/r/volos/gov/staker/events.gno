@@ -4,6 +4,8 @@ import (
 	"std"
 	"strconv"
 	"time"
+
+	"gno.land/p/demo/seqid"
 )
 
 // Events
@@ -21,6 +23,7 @@ const (
 	EventDelegateeKey         = "delegatee"
 	EventAmountKey            = "amount"
 	EventUnlockAtKey          = "unlock_at"
+	EventUnstakeIDKey         = "unstake_id"
 	EventMemberKey            = "member"
 	EventTotalWithdrawnKey    = "total_withdrawn"
 	EventRemainingUnstakesKey = "remaining_unstakes"
@@ -45,7 +48,7 @@ func emitStake(caller, staker, delegatee std.Address, amount int64) {
 	)
 }
 
-func emitBeginUnstake(caller, staker, delegatee std.Address, amount int64, unlockAt int64) {
+func emitBeginUnstake(caller, staker, delegatee std.Address, amount int64, unlockAt int64, id seqid.ID) {
 	std.Emit(
 		EventBeginUnstake,
 		EventCallerKey, caller.String(),
@@ -53,6 +56,7 @@ func emitBeginUnstake(caller, staker, delegatee std.Address, amount int64, unloc
 		EventDelegateeKey, delegatee.String(),
 		EventAmountKey, strconv.FormatInt(amount, 10),
 		EventUnlockAtKey, strconv.FormatInt(unlockAt, 10),
+		EventUnstakeIDKey, id.String(),
 		EventCooldownPeriodKey, strconv.FormatInt(UnstakeLockPeriod(), 10),
 		EventTimestampKey, strconv.FormatInt(time.Now().Unix(), 10),
 	)
