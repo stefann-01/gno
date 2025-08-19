@@ -35,7 +35,7 @@ var (
 	pendingUnstakes   = avl.NewTree()           // staker address (string) -> []UnstakeInfo
 	delegations       = avl.NewTree()           // staker address (string) -> avl.Tree(delegatee address (string) -> int64 amount)
 
-	authorizer = authz.NewWithMembers(std.DerivePkgAddr("gno.land/r/volos/gov/governance"))
+	authorizer    = authz.NewWithMembers(std.DerivePkgAddr("gno.land/r/volos/gov/governance"))
 	nextUnstakeID seqid.ID
 )
 
@@ -50,7 +50,7 @@ func Delegations() *rotree.ReadOnlyTree {
 		delegationTree := v.(*avl.Tree)
 		return rotree.Wrap(delegationTree, nil)
 	}
-	
+
 	return rotree.Wrap(delegations, makeEntrySafeFn)
 }
 

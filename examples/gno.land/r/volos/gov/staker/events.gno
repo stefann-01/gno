@@ -20,22 +20,22 @@ const (
 
 // Attribute key names
 const (
-	EventStakerKey            = "staker"
-	EventDelegateeKey         = "delegatee"
-	EventAmountKey            = "amount"
-	EventUnlockAtKey          = "unlock_at"
-	EventUnstakeIDKey         = "unstake_id"
-	EventMemberKey            = "member"
-	EventTotalWithdrawnKey    = "total_withdrawn"
-	EventRemainingUnstakesKey = "remaining_unstakes"
+	EventStakerKey              = "staker"
+	EventDelegateeKey           = "delegatee"
+	EventAmountKey              = "amount"
+	EventUnlockAtKey            = "unlock_at"
+	EventUnstakeIDKey           = "unstake_id"
+	EventMemberKey              = "member"
+	EventTotalWithdrawnKey      = "total_withdrawn"
+	EventRemainingUnstakesKey   = "remaining_unstakes"
 	EventWithdrawnUnstakeIDsKey = "withdrawn_unstake_ids"
-	EventCallerKey            = "caller"
-	EventTimestampKey         = "timestamp"
-	EventCooldownPeriodKey    = "cooldown_period"
-	EventPendingUnstakesKey   = "pending_unstakes"
-	EventVlsBalanceKey        = "vls_balance"
-	EventXvlsBalanceKey       = "xvls_balance"
-	EventUnstakeInfoKey       = "unstake_info"
+	EventCallerKey              = "caller"
+	EventTimestampKey           = "timestamp"
+	EventCooldownPeriodKey      = "cooldown_period"
+	EventPendingUnstakesKey     = "pending_unstakes"
+	EventVlsBalanceKey          = "vls_balance"
+	EventXvlsBalanceKey         = "xvls_balance"
+	EventUnstakeInfoKey         = "unstake_info"
 )
 
 func emitStake(caller, staker, delegatee std.Address, amount int64) {
