@@ -118,9 +118,7 @@ func Execute(cur realm, proposalID uint64) {
 		panic(err)
 	}
 
-	proposal := volosGovernance.GetProposal(proposalID)
-
-	emitProposalExecuted(caller, proposalID, string(proposal.Status()))
+	emitProposalExecuted(caller, proposalID, string(volosGovernance.GetProposal(proposalID).Status()))
 }
 
 // GetUserActiveProposals returns all active proposals that the given user has voted on.
