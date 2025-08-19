@@ -90,7 +90,7 @@ func CreateProposal(cur realm, title, body string, votingPeriod time.Duration, a
 		panic(ErrInsufficientXVLS)
 	}
 
-	def := VolosProposalDefinition{
+	def := &VolosProposalDefinition{
 		TitleField:        title,
 		BodyField:         body,
 		VotingPeriodField: votingPeriod,
