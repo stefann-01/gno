@@ -21,15 +21,15 @@ func CreateProposals(cur realm) {
 
 	governance.CreateProposal(
 		cross,
-		"Test Proposal", 
+		"Test Proposal 1", 
 		"This is a test proposal to verify governance functionality",
-		time.Duration(1*time.Second),
+		time.Duration(1*time.Minute),
 		callback,
 	)
 
 	governance.CreateProposal(
 		cross,
-		"Test Proposal", 
+		"Test Proposal 2", 
 		"This is a test proposal to verify governance functionality",
 		time.Duration(5*time.Hour),
 		callback,
@@ -37,7 +37,7 @@ func CreateProposals(cur realm) {
 
 	governance.CreateProposal(
 		cross,
-		"Test Proposal", 
+		"Test Proposal 3", 
 		"This is a test proposal to verify governance functionality",
 		time.Duration(5*time.Hour),
 		callback,
