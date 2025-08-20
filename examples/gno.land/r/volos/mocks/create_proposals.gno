@@ -31,7 +31,7 @@ func CreateProposals(cur realm) {
 		cross,
 		"Test Proposal 2", 
 		"This is a test proposal to verify governance functionality",
-		time.Duration(5*time.Hour),
+		time.Duration(1*time.Minute),
 		callback,
 	)
 
