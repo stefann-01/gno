@@ -90,7 +90,11 @@ func CreateProposal(cur realm, title, body string, votingPeriod time.Duration, a
 		panic(ErrInsufficientXVLS)
 	}
 
-	def := &VolosProposalDefinition{
+	if votingPeriod > maximumProposalDuration {
+		panic(ErrVotingPeriodExceedsMaximum)
+	}
+
+	def := VolosProposalDefinition{
 		TitleField:        title,
 		BodyField:         body,
 		VotingPeriodField: votingPeriod,
