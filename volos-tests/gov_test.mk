@@ -55,6 +55,8 @@ stake-all-voters:
 create-test-proposal:
 	$(info ************ Create test proposal ************)
 	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/mocks -func CreateProposals -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" gnoswap_admin
+	@echo "waiting 3s for proposals to be processed..."
+	@sleep 3
 	@echo
 
 # Vote yes on the proposal
