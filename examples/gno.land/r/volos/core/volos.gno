@@ -725,6 +725,8 @@ func Liquidate(cur realm, marketId string, borrower std.Address, seizedAssets, r
 		market.TotalSupplyAssets = new(u256.Uint).Sub(market.TotalSupplyAssets, badDebtAssets)
 		market.TotalBorrowShares = new(u256.Uint).Sub(market.TotalBorrowShares, badDebtShares)
 		borrowerPos.BorrowShares = u256.Zero()
+
+		markets.Set(marketId, market)
 	}
 
 	// Transfer seized collateral to liquidator
