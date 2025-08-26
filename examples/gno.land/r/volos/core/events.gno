@@ -75,17 +75,7 @@ const (
 	EventSupplyAPRKey    = "supplyAPR"
 	EventBorrowAPRKey    = "borrowAPR"
 	// MarketInfo keys
-	EventTotalSupplyAssetsKey = "totalSupplyAssets"
-	EventTotalSupplySharesKey = "totalSupplyShares"
-	EventTotalBorrowAssetsKey = "totalBorrowAssets"
-	EventTotalBorrowSharesKey = "totalBorrowShares"
-	EventLastUpdateKey        = "lastUpdate"
-	EventPoolPathKey          = "poolPath"
-	EventIRMKey               = "irm"
-	EventLLTVKey              = "lltv"
 	EventIsToken0LoanKey      = "isToken0Loan"
-	EventCurrentPriceKey      = "currentPrice"
-	EventUtilizationKey       = "utilization"
 	EventLoanTokenNameKey     = "loanTokenName"
 	EventLoanTokenSymbolKey   = "loanTokenSymbol"
 	EventLoanTokenDecimalsKey = "loanTokenDecimals"
@@ -103,23 +93,8 @@ func emitCreateMarket(marketId string, loanToken string, collateralToken string)
 		EventMarketIDKey, marketId,
 		EventLoanTokenKey, loanToken,
 		EventCollateralTokenKey, collateralToken,
-		// Market fields
-		EventTotalSupplyAssetsKey, info.TotalSupplyAssets,
-		EventTotalSupplySharesKey, info.TotalSupplyShares,
-		EventTotalBorrowAssetsKey, info.TotalBorrowAssets,
-		EventTotalBorrowSharesKey, info.TotalBorrowShares,
-		EventLastUpdateKey, strconv.FormatInt(info.LastUpdate, 10),
-		EventFeeKey, info.Fee,
 		// Params fields
-		EventPoolPathKey, info.PoolPath,
-		EventIRMKey, info.IRM,
-		EventLLTVKey, info.LLTV,
 		EventIsToken0LoanKey, strconv.FormatBool(info.IsToken0Loan),
-		// Additional fields
-		EventCurrentPriceKey, info.CurrentPrice,
-		EventBorrowAPRKey, info.BorrowAPR,
-		EventSupplyAPRKey, info.SupplyAPR,
-		EventUtilizationKey, info.Utilization,
 		// Token information
 		EventLoanTokenNameKey, info.LoanTokenName,
 		EventLoanTokenSymbolKey, info.LoanTokenSymbol,
