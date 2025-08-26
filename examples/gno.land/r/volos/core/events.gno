@@ -110,7 +110,6 @@ func emitCreateMarket(marketId string, loanToken string, collateralToken string)
 		EventMarketIDKey, marketId,
 		EventLoanTokenKey, loanToken,
 		EventCollateralTokenKey, collateralToken,
-		EventIsToken0LoanKey, strconv.FormatBool(params.IsToken0Loan),
 		EventLoanTokenNameKey, loanTokenName,
 		EventLoanTokenSymbolKey, loanTokenSymbol,
 		EventLoanTokenDecimalsKey, strconv.FormatUint(uint64(loanTokenDecimals), 10),
