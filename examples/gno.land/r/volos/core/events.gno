@@ -86,7 +86,30 @@ const (
 
 // Event emission helper functions
 func emitCreateMarket(marketId string, loanToken string, collateralToken string) {
-	info := GetRpcMarketInfo(marketId)
+
+	// Get token paths
+	loanToken := params.GetLoanToken()
+	collateralToken := params.GetCollateralToken()
+
+	// Get token information using GetToken utility
+	var loanTokenName, loanTokenSymbol string
+	var loanTokenDecimals uint
+	var collateralTokenName, collateralTokenSymbol string
+	var collateralTokenDecimals uint
+
+	loanTokenInfo := GetToken(loanToken)
+	if loanTokenInfo != nil {
+		loanTokenName = loanTokenInfo.GetName()
+		loanTokenSymbol = loanTokenInfo.GetSymbol()
+		loanTokenDecimals = uint(loanTokenInfo.GetDecimals())
+	}
+
+	collateralTokenInfo := GetToken(collateralToken)
+	if collateralTokenInfo != nil {
+		collateralTokenName = collateralTokenInfo.GetName()
+		collateralTokenSymbol = collateralTokenInfo.GetSymbol()
+		collateralTokenDecimals = uint(collateralTokenInfo.GetDecimals())
+	}
 
 	std.Emit(
 		CreateMarketEvent,
@@ -94,14 +117,14 @@ func emitCreateMarket(marketId string, loanToken string, collateralToken string)
 		EventLoanTokenKey, loanToken,
 		EventCollateralTokenKey, collateralToken,
 		// Params fields
-		EventIsToken0LoanKey, strconv.FormatBool(info.IsToken0Loan),
+		EventIsToken0LoanKey, strconv.FormatBool(params.IsToken0Loan),
 		// Token information
-		EventLoanTokenNameKey, info.LoanTokenName,
-		EventLoanTokenSymbolKey, info.LoanTokenSymbol,
-		EventLoanTokenDecimalsKey, strconv.FormatUint(uint64(info.LoanTokenDecimals), 10),
-		EventCollateralTokenNameKey, info.CollateralTokenName,
-		EventCollateralTokenSymbolKey, info.CollateralTokenSymbol,
-		EventCollateralTokenDecimalsKey, strconv.FormatUint(uint64(info.CollateralTokenDecimals), 10),
+		EventLoanTokenNameKey, loanTokenName,
+		EventLoanTokenSymbolKey, loanTokenSymbol,
+		EventLoanTokenDecimalsKey, strconv.FormatUint(uint64(loanTokenDecimals), 10),
+		EventCollateralTokenNameKey, collateralTokenName,
+		EventCollateralTokenSymbolKey, collateralTokenSymbol,
+		EventCollateralTokenDecimalsKey, strconv.FormatUint(uint64(collateralTokenDecimals), 10),
 		// Timestamp
 		EventTimestampKey, strconv.FormatInt(time.Now().Unix(), 10),
 	)
