@@ -74,15 +74,60 @@ const (
 	EventTimestampKey    = "currentTimestamp"
 	EventSupplyAPRKey    = "supplyAPR"
 	EventBorrowAPRKey    = "borrowAPR"
+	// MarketInfo keys
+	EventTotalSupplyAssetsKey = "totalSupplyAssets"
+	EventTotalSupplySharesKey = "totalSupplyShares"
+	EventTotalBorrowAssetsKey = "totalBorrowAssets"
+	EventTotalBorrowSharesKey = "totalBorrowShares"
+	EventLastUpdateKey        = "lastUpdate"
+	EventPoolPathKey          = "poolPath"
+	EventIRMKey               = "irm"
+	EventLLTVKey              = "lltv"
+	EventIsToken0LoanKey      = "isToken0Loan"
+	EventCurrentPriceKey      = "currentPrice"
+	EventUtilizationKey       = "utilization"
+	EventLoanTokenNameKey     = "loanTokenName"
+	EventLoanTokenSymbolKey   = "loanTokenSymbol"
+	EventLoanTokenDecimalsKey = "loanTokenDecimals"
+	EventCollateralTokenNameKey     = "collateralTokenName"
+	EventCollateralTokenSymbolKey   = "collateralTokenSymbol"
+	EventCollateralTokenDecimalsKey = "collateralTokenDecimals"
 )
 
 // Event emission helper functions
 func emitCreateMarket(marketId string, loanToken string, collateralToken string) {
+	info := GetRpcMarketInfo(marketId)
+
 	std.Emit(
 		CreateMarketEvent,
 		EventMarketIDKey, marketId,
 		EventLoanTokenKey, loanToken,
 		EventCollateralTokenKey, collateralToken,
+		// Market fields
+		EventTotalSupplyAssetsKey, info.TotalSupplyAssets,
+		EventTotalSupplySharesKey, info.TotalSupplyShares,
+		EventTotalBorrowAssetsKey, info.TotalBorrowAssets,
+		EventTotalBorrowSharesKey, info.TotalBorrowShares,
+		EventLastUpdateKey, strconv.FormatInt(info.LastUpdate, 10),
+		EventFeeKey, info.Fee,
+		// Params fields
+		EventPoolPathKey, info.PoolPath,
+		EventIRMKey, info.IRM,
+		EventLLTVKey, info.LLTV,
+		EventIsToken0LoanKey, strconv.FormatBool(info.IsToken0Loan),
+		// Additional fields
+		EventCurrentPriceKey, info.CurrentPrice,
+		EventBorrowAPRKey, info.BorrowAPR,
+		EventSupplyAPRKey, info.SupplyAPR,
+		EventUtilizationKey, info.Utilization,
+		// Token information
+		EventLoanTokenNameKey, info.LoanTokenName,
+		EventLoanTokenSymbolKey, info.LoanTokenSymbol,
+		EventLoanTokenDecimalsKey, strconv.FormatUint(uint64(info.LoanTokenDecimals), 10),
+		EventCollateralTokenNameKey, info.CollateralTokenName,
+		EventCollateralTokenSymbolKey, info.CollateralTokenSymbol,
+		EventCollateralTokenDecimalsKey, strconv.FormatUint(uint64(info.CollateralTokenDecimals), 10),
+		// Timestamp
 		EventTimestampKey, strconv.FormatInt(time.Now().Unix(), 10),
 	)
 }
