@@ -86,12 +86,6 @@ const (
 
 // Event emission helper functions
 func emitCreateMarket(marketId string, loanToken string, collateralToken string) {
-
-	// Get token paths
-	loanToken := params.GetLoanToken()
-	collateralToken := params.GetCollateralToken()
-
-	// Get token information using GetToken utility
 	var loanTokenName, loanTokenSymbol string
 	var loanTokenDecimals uint
 	var collateralTokenName, collateralTokenSymbol string
