@@ -87,7 +87,7 @@ const (
 
 // Event emission helper functions
 func emitCreateMarket(marketId string, loanToken string, collateralToken string) {
-	market, params := GetMarket(marketId)
+	_, params := GetMarket(marketId)
 	var loanTokenName, loanTokenSymbol string
 	var loanTokenDecimals uint
 	var collateralTokenName, collateralTokenSymbol string
