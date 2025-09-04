@@ -36,8 +36,8 @@ func GetPrice(marketId string) *u256.Uint {
 	// If token0 is the loan token, we need to invert the price
 	// because Gnoswap's price is always token1/token0
 	if params.IsToken0Loan {
-		// Invert price: ORACLE_PRICE_SCALE² / price
-		price = math.MulDivDown(consts.ORACLE_PRICE_SCALE, consts.ORACLE_PRICE_SCALE, price)
+		// Invert price: scaleFactor² / price
+		price = math.MulDivDown(scaleFactor, scaleFactor, price)
 	}
 
 	return price
