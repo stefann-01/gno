@@ -5,28 +5,19 @@ import (
 	"strconv"
 	"time"
 
-	"gno.land/p/demo/json"
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/onbloc/json"
+	"gno.land/p/nt/ufmt"
+
 	u256 "gno.land/p/gnoswap/uint256"
 
-	"gno.land/r/gnoswap/v1/access"
-	"gno.land/r/gnoswap/v1/gns"
+	"gno.land/r/gnoswap/gns"
 )
 
-// GetPoolByPoolPath retrieves the pool's path using the provided pool path.
-//
-// Parameters:
-// - poolPath (string): The path of the pool to retrieve.
-//
-// Returns:
-// - string: The `poolPath` of the found pool.
-//
-// Panics:
-// - If the pool corresponding to the given `poolPath` does not exist in the `pools` collection.
-func GetPoolByPoolPath(poolPath string) *Pool {
+// getPoolByPoolPath retrieves the pool by its path.
+func getPoolByPoolPath(poolPath string) *Pool {
 	pool, ok := pools.Get(poolPath)
 	if !ok {
-		panic(addDetailToError(
+		panic(makeErrorWithDetails(
 			errDataNotFound,
 			ufmt.Sprintf("poolPath(%s) pool does not exist", poolPath)),
 		)
@@ -35,21 +26,12 @@ func GetPoolByPoolPath(poolPath string) *Pool {
 	return pool
 }
 
-// GetPoolIncentiveIdList returns the list of incentive IDs for a given pool
-//
-// Parameters:
-//   - poolPath (string): The path of the pool to get incentives for
-//
-// Returns:
-//   - A slice og incentive IDs associated with the pool
-//
-// Panics:
-//   - If the pool incentives do not exist for the given pool path
+// GetPoolIncentiveIdList returns all incentive IDs for a pool.
 func GetPoolIncentiveIdList(poolPath string) []string {
-	pool := GetPoolByPoolPath(poolPath)
+	pool := getPoolByPoolPath(poolPath)
 
 	ids := []string{}
-	pool.incentives.byTime.Iterate("", "", func(key string, value any) bool {
+	pool.incentives.incentives.Iterate("", "", func(key string, value any) bool {
 		ids = append(ids, key)
 		return true
 	})
@@ -57,224 +39,90 @@ func GetPoolIncentiveIdList(poolPath string) []string {
 	return ids
 }
 
-// GetIncentive retrieves an external incentive by its ID from a specified pool.
-//
-// This function searches for an incentive within the specified pool's incentives,
-// identified by the given `incentiveId`. If the pool or the incentive does not exist,
-// the function panics with an appropriate error message.
-//
-// Parameters:
-// - poolPath (string): The path of the pool containing the incentive.
-// - incentiveId (string): The ID of the incentive to retrieve.
-//
-// Returns:
-// - *ExternalIncentive: A pointer to the retrieved ExternalIncentive.
-//
-// Panics:
-// - If the pool corresponding to the given `poolPath` does not exist.
-// - If the incentive with the specified `incentiveId` does not exist.
-func GetIncentive(poolPath string, incentiveId string) *ExternalIncentive {
-	pool := GetPoolByPoolPath(poolPath)
+// getIncentive retrieves an external incentive by ID.
+func getIncentive(poolPath string, incentiveId string) *ExternalIncentive {
+	pool := getPoolByPoolPath(poolPath)
 
-	incentive, exist := pool.incentives.byTime.Get(incentiveId)
+	incentive, exist := pool.incentives.incentives.Get(incentiveId)
 	if !exist {
 		panic(ufmt.Sprintf("incentiveId(%s) incentive does not exist", incentiveId))
 	}
 
-	return incentive.(*ExternalIncentive)
+	ictv, ok := incentive.(*ExternalIncentive)
+	if !ok {
+		panic(ufmt.Sprintf("failed to cast incentive to *ExternalIncentive: %T", incentive))
+	}
+	return ictv
 }
 
-// GetIncentiveStartTimestamp returns the start timestamp for a given incentive
-//
-// Parameters:
-//   - incentiveId (string): The ID of the incentive
-//
-// Returns:
-//   - int64: The start timestamp of the incentive
-//
-// Panics:
-//   - If the incentive does not exist for the given incentiveId
+// GetIncentiveStartTimestamp returns the start timestamp of an incentive.
 func GetIncentiveStartTimestamp(poolPath string, incentiveId string) int64 {
-	incentive := GetIncentive(poolPath, incentiveId)
+	incentive := getIncentive(poolPath, incentiveId)
 
 	return incentive.startTimestamp
 }
 
-// GetIncentiveEndTimestamp returns the end timestamp for a given incentive
-//
-// Parameters:
-//   - incentiveId (string): The ID of the incentive
-//
-// Returns:
-//   - int64: The end timestamp of the incentive
-//
-// Panics:
-//   - If the incentive does not exist for the given incentiveId
+// GetIncentiveEndTimestamp returns the end timestamp of an incentive.
 func GetIncentiveEndTimestamp(poolPath string, incentiveId string) int64 {
-	incentive := GetIncentive(poolPath, incentiveId)
+	incentive := getIncentive(poolPath, incentiveId)
 
 	return incentive.endTimestamp
 }
 
-// GetTargetPoolPathByIncentiveId returns the target pool path for a given incentive
-//
-// Parameters:
-//   - incentiveId (string): The ID of the incentive
-//
-// Returns:
-//   - The target pool path (string) associated with the incentive
-//
-// Panics:
-//   - If the incentive does nor exist for the given incentive ID
+// GetTargetPoolPathByIncentiveId returns the target pool path of an incentive.
 func GetTargetPoolPathByIncentiveId(poolPath string, incentiveId string) string {
-	incentive := GetIncentive(poolPath, incentiveId)
+	incentive := getIncentive(poolPath, incentiveId)
 
 	return incentive.targetPoolPath
 }
 
-// GetCreatedHeightOfIncentive retrieves the creation height of a specified incentive.
-//
-// Parameters:
-// - poolPath (string): The path of the pool containing the incentive.
-// - incentiveId (string): The ID of the incentive to retrieve the creation height for.
-//
-// Returns:
-// - int64: The creation height of the specified incentive.
+// GetCreatedHeightOfIncentive returns the creation height of an incentive.
 func GetCreatedHeightOfIncentive(poolPath string, incentiveId string) int64 {
-	incentive := GetIncentive(poolPath, incentiveId)
+	incentive := getIncentive(poolPath, incentiveId)
 
 	return incentive.createdHeight
 }
 
-// GetIncentiveRewardToken returns the reward token for a given incentive
-//
-// Parameters:
-//   - incentiveId (string): The ID of the incentive
-//
-// Returns:
-//   - The reward token (string) associated with the incentive
-//
-// Panics:
-//   - If the incentive does not exist for the given incentiveId
+// GetIncentiveRewardToken returns the reward token of an incentive.
 func GetIncentiveRewardToken(poolPath string, incentiveId string) string {
-	incentive := GetIncentive(poolPath, incentiveId)
+	incentive := getIncentive(poolPath, incentiveId)
 
 	return incentive.rewardToken
 }
 
-// GetIncentiveRewardAmount returns the reward amount for a given incentive as a Uint256
-//
-// Parameters:
-//   - incentiveId (string): The ID of the incentive
-//
-// Returns:
-//   - *u256.Uint: The reward amount associated with the incentive
-//
-// Panics:
-//   - If the incentive does not exist for the given incentiveId
+// GetIncentiveRewardAmount returns the reward amount of an incentive.
 func GetIncentiveRewardAmount(poolPath string, incentiveId string) *u256.Uint {
-	incentive := GetIncentive(poolPath, incentiveId)
+	incentive := getIncentive(poolPath, incentiveId)
 
 	return u256.NewUintFromInt64(incentive.rewardAmount)
 }
 
-// GetIncentiveRewardAmountAsString returns the reward amount for a given incentive as a string
-//
-// Parameters:
-//   - incentiveId (string): The ID of the incentive
-//
-// Returns:
-//   - string: The reward amount associated with the incentive as a string
-//
-// Panics:
-//   - If the incentive does not exist for the given incentiveId
+// GetIncentiveRewardAmountAsString returns the reward amount of an incentive as string.
 func GetIncentiveRewardAmountAsString(poolPath string, incentiveId string) string {
-	rewardAmount := GetIncentiveRewardAmount(incentiveId, poolPath)
+	rewardAmount := GetIncentiveRewardAmount(poolPath, incentiveId)
 
 	return rewardAmount.ToString()
 }
 
-// GetIncentiveStartHeight retrieves the start height of a specified incentive.
-//
-// This function looks up an incentive within the specified pool using the `poolPath` and `incentiveId`.
-// It then returns the height at which the incentive starts.
-//
-// Parameters:
-// - poolPath (string): The path of the pool containing the incentive.
-// - incentiveId (string): The ID of the incentive to retrieve the start height for.
-//
-// Returns:
-// - int64: The starting height of the specified incentive.
-func GetIncentiveStartHeight(poolPath string, incentiveId string) int64 {
-	incentive := GetIncentive(poolPath, incentiveId)
+// GetIncentiveRewardPerSecond returns the reward per second of an incentive.
+func GetIncentiveRewardPerSecond(poolPath string, incentiveId string) int64 {
+	incentive := getIncentive(poolPath, incentiveId)
 
-	return incentive.startHeight
+	return incentive.rewardPerSecond
 }
 
-// GetIncentiveEndHeight retrieves the end height of a specified incentive.
-//
-// This function looks up an incentive within the specified pool using the `poolPath` and `incentiveId`.
-// It then returns the height at which the incentive ends.
-//
-// Parameters:
-// - poolPath (string): The path of the pool containing the incentive.
-// - incentiveId (string): The ID of the incentive to retrieve the end height for.
-//
-// Returns:
-// - int64: The ending height of the specified incentive.
-func GetIncentiveEndHeight(poolPath string, incentiveId string) int64 {
-	incentive := GetIncentive(poolPath, incentiveId)
-
-	return incentive.endHeight
-}
-
-// GetIncentiveRewardPerBlock retrieves the reward per block of a specified incentive.
-//
-// This function looks up an incentive within the specified pool using the `poolPath` and `incentiveId`.
-// It then returns the reward amount distributed per block for the incentive.
-//
-// Parameters:
-// - poolPath (string): The path of the pool containing the incentive.
-// - incentiveId (string): The ID of the incentive to retrieve the reward per block for.
-//
-// Returns:
-// - int64: The reward amount distributed per block for the specified incentive.
-func GetIncentiveRewardPerBlock(poolPath string, incentiveId string) int64 {
-	incentive := GetIncentive(poolPath, incentiveId)
-
-	return incentive.rewardPerBlock
-}
-
-// GetIncentiveRefundee returns the refundee address for a given incentive
-//
-// Parameters:
-//   - incentiveId (string): The ID of the incentive
-//
-// Returns:
-//   - std.Address: The refundee address of the incentive
-//
-// Panics:
-//   - If the incentive does not exist for the given incentiveId
+// GetIncentiveRefundee returns the refundee address of an incentive.
 func GetIncentiveRefundee(poolPath string, incentiveId string) std.Address {
-	incentive := GetIncentive(poolPath, incentiveId)
+	incentive := getIncentive(poolPath, incentiveId)
 
 	return incentive.refundee
 }
 
-// GetDeposit retrieves a deposit associated with a given LP token ID.
-//
-// This function looks up the deposit record for the specified LP token ID in the global `deposits` collection.
-// If the deposit does not exist, it panics with an appropriate error message.
-//
-// Parameters:
-// - lpTokenId (uint64): The unique identifier of the LP token for which the deposit is retrieved.
-//
-// Returns:
-// - *Deposit: A pointer to the `Deposit` object associated with the given LP token ID.
-func GetDeposit(lpTokenId uint64) *Deposit {
-	deposit := deposits.Get(lpTokenId)
+// getDeposit retrieves a deposit by LP token ID.
+func getDeposit(lpTokenId uint64) *Deposit {
+	deposit := deposits.get(lpTokenId)
 	if deposit == nil {
-		panic(addDetailToError(
+		panic(makeErrorWithDetails(
 			errDataNotFound,
 			ufmt.Sprintf("lpTokenId(%d) deposit does not exist", lpTokenId)),
 		)
@@ -283,207 +131,88 @@ func GetDeposit(lpTokenId uint64) *Deposit {
 	return deposit
 }
 
-// GetDepositOwner returns the owner address of a deposit for a given LP token ID
-//
-// Parameters:
-//   - lpTokenId (uint64): The ID of the LP token
-//
-// Returns:
-//   - std.Address: The owner address of the deposit
-//
-// Panics:
-//   - If the deposit does not exist for the given lpTokenId
+// GetDepositOwner returns the owner of a deposit.
 func GetDepositOwner(lpTokenId uint64) std.Address {
-	deposit := GetDeposit(lpTokenId)
+	deposit := getDeposit(lpTokenId)
 
 	return deposit.owner
 }
 
-// GetDepositStakeTimestamp returns the stake timestamp for a given LP token ID
-//
-// Parameters:
-//   - lpTokenId (uint64): The ID of the LP token
-//
-// Returns:
-//   - int64: The stake timestamp of the deposit
-//
-// Panics:
-//   - If the deposit does not exist for the given lpTokenId
+// GetDepositStakeTimestamp returns the stake timestamp of a deposit.
 func GetDepositStakeTimestamp(lpTokenId uint64) int64 {
-	deposit := GetDeposit(lpTokenId)
+	deposit := getDeposit(lpTokenId)
 
 	return deposit.stakeTimestamp
 }
 
-// GetDepositStakeHeight retrieves the stake height of a deposit associated with a given LP token ID.
-//
-// This function looks up the deposit record for the specified LP token ID and returns the height
-// at which the deposit was staked. It relies on the `GetDeposit` function to fetch the deposit.
-// If the deposit does not exist, the function panics.
-//
-// Parameters:
-// - lpTokenId (uint64): The unique identifier of the LP token for which the stake height is retrieved.
-//
-// Returns:
-// - int64: The stake height of the deposit associated with the given LP token ID.
-func GetDepositStakeHeight(lpTokenId uint64) int64 {
-	deposit := GetDeposit(lpTokenId)
+// GetDepositStakeTime returns the stake time of a deposit.
+func GetDepositStakeTime(lpTokenId uint64) int64 {
+	deposit := getDeposit(lpTokenId)
 
-	return deposit.stakeHeight
+	return deposit.stakeTime
 }
 
-// GetDepositTargetPoolPath returns the target pool path for a given LP token ID
-//
-// Parameters:
-//   - lpTokenId (uint64): The ID of the LP token
-//
-// Returns:
-//   - string: The target pool path of the deposit
-//
-// Panics:
-//   - If the deposit does not exist for the given lpTokenId
+// GetDepositTargetPoolPath returns the target pool path of a deposit.
 func GetDepositTargetPoolPath(lpTokenId uint64) string {
-	deposit := GetDeposit(lpTokenId)
+	deposit := getDeposit(lpTokenId)
 
 	return deposit.targetPoolPath
 }
 
-// GetDepositTickLower retrieves the lower tick of a deposit associated with a given LP token ID.
-//
-// This function looks up the deposit record for the specified LP token ID and returns
-// the lower tick value of the deposit. If the deposit does not exist, the function panics.
-//
-// Parameters:
-// - lpTokenId (uint64): The unique identifier of the LP token for which the lower tick is retrieved.
-//
-// Returns:
-// - int32: The lower tick value of the deposit.
+// GetDepositTickLower returns the lower tick of a deposit.
 func GetDepositTickLower(lpTokenId uint64) int32 {
-	deposit := GetDeposit(lpTokenId)
+	deposit := getDeposit(lpTokenId)
 
 	return deposit.tickLower
 }
 
-// GetDepositTickUpper retrieves the upper tick of a deposit associated with a given LP token ID.
-//
-// This function looks up the deposit record for the specified LP token ID and returns
-// the upper tick value of the deposit. If the deposit does not exist, the function panics.
-//
-// Parameters:
-// - lpTokenId (uint64): The unique identifier of the LP token for which the upper tick is retrieved.
-//
-// Returns:
-// - int32: The upper tick value of the deposit.
+// GetDepositTickUpper returns the upper tick of a deposit.
 func GetDepositTickUpper(lpTokenId uint64) int32 {
-	deposit := GetDeposit(lpTokenId)
+	deposit := getDeposit(lpTokenId)
 
 	return deposit.tickUpper
 }
 
-// GetDepositLiquidity retrieves the liquidity of a deposit associated with a given LP token ID.
-//
-// This function looks up the deposit record for the specified LP token ID and returns
-// the liquidity value as a `*u256.Uint` object. If the deposit does not exist, the function panics.
-//
-// Parameters:
-// - lpTokenId (uint64): The unique identifier of the LP token for which the liquidity is retrieved.
-//
-// Returns:
-// - *u256.Uint: The liquidity value of the deposit.
+// GetDepositLiquidity returns the liquidity of a deposit.
 func GetDepositLiquidity(lpTokenId uint64) *u256.Uint {
-	deposit := GetDeposit(lpTokenId)
+	deposit := getDeposit(lpTokenId)
 
-	return deposit.liquidity
+	return deposit.liquidity.Clone()
 }
 
-// GetDepositLiquidityAsString retrieves the liquidity of a deposit associated with a given LP token ID
-// and returns it as a string.
-//
-// This function looks up the deposit record for the specified LP token ID, retrieves its liquidity,
-// and converts it to a string. If the deposit does not exist, the function panics.
-//
-// Parameters:
-// - lpTokenId (uint64): The unique identifier of the LP token for which the liquidity is retrieved.
-//
-// Returns:
-// - string: The liquidity value of the deposit as a string.
+// GetDepositLiquidityAsString returns the liquidity of a deposit as string.
 func GetDepositLiquidityAsString(lpTokenId uint64) string {
 	liquidity := GetDepositLiquidity(lpTokenId)
 
 	return liquidity.ToString()
 }
 
-// GetDepositLastCollectHeight retrieves the last collection height of a deposit associated with a given LP token ID.
-//
-// This function looks up the deposit record for the specified LP token ID and returns
-// the last height at which rewards were collected. If the deposit does not exist, the function panics.
-//
-// Parameters:
-// - lpTokenId (uint64): The unique identifier of the LP token for which the last collection height is retrieved.
-//
-// Returns:
-// - uint64: The last collection height of the deposit.
-func GetDepositLastCollectHeight(lpTokenId uint64) int64 {
-	deposit := GetDeposit(lpTokenId)
+// GetDepositLastCollectTimestamp returns the last collect timestamp of a deposit.
+func GetDepositLastCollectTimestamp(lpTokenId uint64) int64 {
+	deposit := getDeposit(lpTokenId)
 
-	return deposit.lastCollectHeight
+	return deposit.lastCollectTime
 }
 
-// GetDepositWarmUp retrieves the warm-up records of a deposit associated with a given LP token ID.
-//
-// This function looks up the deposit record for the specified LP token ID and returns
-// the list of warm-up records associated with the deposit. If the deposit does not exist, the function panics.
-//
-// Parameters:
-// - lpTokenId (uint64): The unique identifier of the LP token for which the warm-up records are retrieved.
-//
-// Returns:
-// - []Warmup: A slice of warm-up records associated with the deposit.
+// GetDepositWarmUp returns the warm-up records of a deposit.
 func GetDepositWarmUp(lpTokenId uint64) []Warmup {
-	deposit := GetDeposit(lpTokenId)
+	deposit := getDeposit(lpTokenId)
 
 	return deposit.warmups
 }
 
-// GetPoolTier returns the tier of a given pool
-//
-// Parameters:
-//   - poolPath (string): The path of the pool
-//
-// Returns:
-//   - uint64: The tier of the pool
-//
-// Panics:
-//   - If the pool tier does not exist for the given poolPath
+// GetPoolTier returns the tier of a pool.
 func GetPoolTier(poolPath string) uint64 {
 	return poolTier.CurrentTier(poolPath)
 }
 
-// GetPoolTierRatio retrieves the current reward ratio for the specified pool tier.
-//
-// This function calculates the reward ratio of a pool by determining its tier
-// using `GetPoolTier` and then fetching the tier's current ratio based on the current block height.
-//
-// Parameters:
-// - poolPath (string): The path of the pool whose tier ratio is retrieved.
-//
-// Returns:
-// - uint64: The current reward ratio for the specified pool tier.
+// GetPoolTierRatio returns the current reward ratio for a pool's tier.
 func GetPoolTierRatio(poolPath string) uint64 {
 	tier := GetPoolTier(poolPath)
 	return poolTier.tierRatio.Get(tier)
 }
 
-// GetPoolTierCount retrieves the current count of pools in the specified tier.
-//
-// This function checks the number of pools in the given tier based on the current block height.
-// If the tier is `0`, it returns `0`.
-//
-// Parameters:
-// - tier (uint64): The tier for which the pool count is retrieved.
-//
-// Returns:
-// - uint64: The current count of pools in the specified tier.
+// GetPoolTierCount returns the number of pools in a tier.
 func GetPoolTierCount(tier uint64) uint64 {
 	if tier == 0 {
 		return 0
@@ -491,51 +220,12 @@ func GetPoolTierCount(tier uint64) uint64 {
 	return uint64(poolTier.CurrentCount(tier))
 }
 
-// GetPoolReward retrieves the current reward amount for the specified pool tier.
-//
-// This function fetches the reward for the given tier based on the current block height.
-//
-// Parameters:
-// - tier (uint64): The tier for which the reward is retrieved.
-//
-// Returns:
-// - int64: The current reward amount for the specified tier.
+// GetPoolReward returns the current reward amount for a tier.
 func GetPoolReward(tier uint64) int64 {
 	return poolTier.CurrentReward(tier)
 }
 
-// GetExternalIncentive retrieves an external incentive by its ID.
-//
-// This function looks up an external incentive in the global `externalIncentives` tree using the specified `incentiveId`.
-// If the incentive does not exist, the function panics with an appropriate error message.
-//
-// Parameters:
-// - incentiveId (string): The ID of the incentive to retrieve.
-//
-// Returns:
-// - *ExternalIncentive: A pointer to the retrieved `ExternalIncentive` object.
-func GetExternalIncentive(incentiveId string) *ExternalIncentive {
-	incentive, exist := externalIncentives.tree.Get(incentiveId)
-	if !exist {
-		panic(addDetailToError(
-			errDataNotFound,
-			ufmt.Sprintf("incentiveId(%s) incentive does not exist", incentiveId)),
-		)
-	}
-
-	return incentive.(*ExternalIncentive)
-}
-
-// GetExternalIncentiveByPoolPath retrieves all external incentives associated with a specific pool path.
-//
-// This function iterates through all external incentives in the global `externalIncentives` tree
-// and returns a list of incentives whose `targetPoolPath` matches the specified `poolPath`.
-//
-// Parameters:
-// - poolPath (string): The path of the pool for which incentives are retrieved.
-//
-// Returns:
-// - []ExternalIncentive: A slice of `ExternalIncentive` objects associated with the specified pool path.
+// GetExternalIncentiveByPoolPath returns all external incentives for a pool.
 func GetExternalIncentiveByPoolPath(poolPath string) []ExternalIncentive {
 	incentives := []ExternalIncentive{}
 	externalIncentives.tree.Iterate("", "", func(key string, value any) bool {
@@ -549,6 +239,7 @@ func GetExternalIncentiveByPoolPath(poolPath string) []ExternalIncentive {
 	return incentives
 }
 
+// GetPrintExternalInfo returns a JSON representation of external incentive debug information.
 func GetPrintExternalInfo() string {
 	externalDebug := ApiExternalDebugInfo{
 		Height: std.ChainHeight(),
@@ -559,13 +250,16 @@ func GetPrintExternalInfo() string {
 	deposits.Iterate(uint64(0), uint64(deposits.Size()), func(positionId uint64, deposit *Deposit) bool {
 		externalPosition := ApiExternalDebugPosition{
 			PositionId:      positionId,
-			StakedHeight:    deposit.stakeHeight,
+			StakedTime:      deposit.stakeTime,
 			StakedTimestamp: deposit.stakeTimestamp,
 		}
 
 		externalIncentivesList := []ApiExternalDebugIncentive{}
 		externalIncentives.tree.Iterate("", "", func(key string, value any) bool {
-			incentive := value.(*ExternalIncentive)
+			incentive, ok := value.(*ExternalIncentive)
+			if !ok {
+				panic("failed to cast value to *ExternalIncentive")
+			}
 			if incentive.targetPoolPath == deposit.targetPoolPath {
 				externalIncentive := ApiExternalDebugIncentive{
 					PoolPath:          incentive.targetPoolPath,
@@ -575,12 +269,10 @@ func GetPrintExternalInfo() string {
 					RewardLeft:        strconv.FormatInt(incentive.rewardLeft, 10),
 					StartTimestamp:    incentive.startTimestamp,
 					EndTimestamp:      incentive.endTimestamp,
-					RewardPerBlock:    strconv.FormatInt(incentive.rewardPerBlock, 10),
+					RewardPerSecond:   strconv.FormatInt(incentive.rewardPerSecond, 10),
 					Refundee:          incentive.refundee,
 					TokenAmountFull:   incentive.depositGnsAmount,
-					TokenAmountToGive: incentive.RewardSpent(uint64(std.ChainHeight())),
-					StartHeight:       incentive.startHeight,
-					EndHeight:         incentive.endHeight,
+					TokenAmountToGive: incentive.RewardSpent(time.Now().Unix()),
 				}
 
 				externalIncentivesList = append(externalIncentivesList, externalIncentive)
@@ -610,13 +302,14 @@ func GetPrintExternalInfo() string {
 	return string(b)
 }
 
+// makeExternalPositionsNode creates JSON nodes for external position data.
 func makeExternalPositionsNode(positions []ApiExternalDebugPosition) []*json.Node {
 	externalPositions := make([]*json.Node, 0)
 
 	for _, externalPosition := range positions {
 		incentives := make([]*json.Node, 0)
 		for _, incentive := range externalPosition.Incentive {
-			stakedOrExternalDuration := std.ChainHeight() - max(incentive.StartHeight, externalPosition.StakedHeight)
+			stakedOrExternalDuration := std.ChainHeight() - max(incentive.StartHeight, externalPosition.StakedTime)
 
 			incentives = append(incentives, json.ObjectNode("", map[string]*json.Node{
 				"poolPath":                 json.StringNode("poolPath", incentive.PoolPath),
@@ -625,7 +318,7 @@ func makeExternalPositionsNode(positions []ApiExternalDebugPosition) []*json.Nod
 				"rewardLeft":               json.StringNode("rewardLeft", incentive.RewardLeft),
 				"startTimestamp":           json.NumberNode("startTimestamp", float64(incentive.StartTimestamp)),
 				"endTimestamp":             json.NumberNode("endTimestamp", float64(incentive.EndTimestamp)),
-				"rewardPerBlock":           json.StringNode("rewardPerBlock", incentive.RewardPerBlock),
+				"rewardPerSecond":          json.StringNode("rewardPerSecond", incentive.RewardPerSecond),
 				"stakedOrExternalDuration": json.NumberNode("stakedOrExternalDuration", float64(stakedOrExternalDuration)),
 				"tokenAmountFull":          json.NumberNode("tokenAmountFull", float64(incentive.TokenAmountFull)),
 				"tokenAmountToGive":        json.NumberNode("tokenAmountToGive", float64(incentive.TokenAmountToGive)),
@@ -634,7 +327,7 @@ func makeExternalPositionsNode(positions []ApiExternalDebugPosition) []*json.Nod
 
 		externalPositions = append(externalPositions, json.ObjectNode("", map[string]*json.Node{
 			"lpTokenId":       json.NumberNode("lpTokenId", float64(externalPosition.PositionId)),
-			"stakedHeight":    json.NumberNode("stakedHeight", float64(externalPosition.StakedHeight)),
+			"stakedTime":      json.NumberNode("stakedTime", float64(externalPosition.StakedTime)),
 			"stakedTimestamp": json.NumberNode("stakedTimestamp", float64(externalPosition.StakedTimestamp)),
 			"incentive":       json.ArrayNode("", incentives),
 		}))
@@ -657,24 +350,24 @@ type ApiExternalDebugInfo struct {
 
 type ApiExternalDebugPosition struct {
 	PositionId      uint64                      `json:"positionId"`
-	StakedHeight    int64                       `json:"stakedHeight"`
+	StakedTime      int64                       `json:"stakedTime"`
 	StakedTimestamp int64                       `json:"stakedTimestamp"`
 	Incentive       []ApiExternalDebugIncentive `json:"incentive"`
 }
 
 type ApiExternalDebugIncentive struct {
-	PoolPath          string      `json:"poolPath"`
-	IncentiveId       string      `json:"incentiveId"`
-	RewardToken       string      `json:"rewardToken"`
-	RewardAmount      string      `json:"rewardAmount"`
-	RewardLeft        string      `json:"rewardLeft"`
-	StartTimestamp    int64       `json:"startTimestamp"`
-	EndTimestamp      int64       `json:"endTimestamp"`
-	RewardPerBlockX96 string      `json:"rewardPerBlockX96"`
-	RewardPerBlock    string      `json:"rewardPerBlock"`
-	Refundee          std.Address `json:"refundee"`
-	StartHeight       int64       `json:"startHeight"`
-	EndHeight         int64       `json:"endHeight"`
+	PoolPath           string      `json:"poolPath"`
+	IncentiveId        string      `json:"incentiveId"`
+	RewardToken        string      `json:"rewardToken"`
+	RewardAmount       string      `json:"rewardAmount"`
+	RewardLeft         string      `json:"rewardLeft"`
+	StartTimestamp     int64       `json:"startTimestamp"`
+	EndTimestamp       int64       `json:"endTimestamp"`
+	RewardPerSecondX96 string      `json:"rewardPerSecondX96"`
+	RewardPerSecond    string      `json:"rewardPerSecond"`
+	Refundee           std.Address `json:"refundee"`
+	StartHeight        int64       `json:"startHeight"`
+	EndHeight          int64       `json:"endHeight"`
 	// FROM positionExternal -> externalRewards
 	TokenAmountX96    *u256.Uint `json:"tokenAmountX96"`
 	TokenAmount       int64      `json:"tokenAmount"`
@@ -702,23 +395,16 @@ type currentInfo struct {
 	gnsADMIN         int64
 }
 
+// getCurrentInfo returns current GNS balance information for system addresses.
 func getCurrentInfo() currentInfo {
 	return currentInfo{
 		height:           std.ChainHeight(),
 		time:             time.Now().Unix(),
-		gnsStaker:        gns.BalanceOf(getAddress(access.ROLE_STAKER)),
+		gnsStaker:        gns.BalanceOf(stakerAddr),
 		gnsDevOps:        gns.BalanceOf(devOpsAddr),
-		gnsCommunityPool: gns.BalanceOf(getAddress(access.ROLE_COMMUNITY_POOL)),
-		gnsGovStaker:     gns.BalanceOf(getAddress(access.ROLE_GOV_STAKER)),
-		gnsProtocolFee:   gns.BalanceOf(getAddress(access.ROLE_PROTOCOL_FEE)),
-		gnsADMIN:         gns.BalanceOf(getAddress(access.ROLE_ADMIN)),
+		gnsCommunityPool: gns.BalanceOf(communityPoolAddr),
+		gnsGovStaker:     gns.BalanceOf(govStakerAddr),
+		gnsProtocolFee:   gns.BalanceOf(protocolFeeAddr),
+		gnsADMIN:         gns.BalanceOf(adminAddr),
 	}
-}
-
-func getAddress(roleName string) std.Address {
-	addr, err := access.GetAddress(roleName)
-	if err != nil {
-		panic(err)
-	}
-	return addr
 }

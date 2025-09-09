@@ -4,7 +4,7 @@ import (
 	"std"
 	"strconv"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 )
 
 // ApiGetProjectAndTierStatisticsByProjectId retrieves project and tier statistics by project ID.
@@ -87,6 +87,6 @@ func ApiGetProjectActiveOf(projectId string) string {
 		WriteString("projectId", project.id).
 		WriteString("isActive", strconv.FormatBool(projectActiveResult)).
 		WriteString("currentHeight", strconv.FormatInt(std.ChainHeight(), 10))).
-		WriteString("started.height", strconv.FormatInt(project.standardTier().startBlockTimeInfo.BlockHeight(), 10))
+		WriteString("startTime", strconv.FormatInt(project.standardTier().startTime, 10))
 	return marshal(builder.Node())
 }

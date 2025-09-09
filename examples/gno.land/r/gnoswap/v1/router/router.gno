@@ -4,15 +4,18 @@ import (
 	"std"
 	"strconv"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 	i256 "gno.land/p/gnoswap/int256"
 	u256 "gno.land/p/gnoswap/uint256"
 
-	"gno.land/p/gnoswap/consts"
-	"gno.land/r/demo/wugnot"
+	"gno.land/r/gnoland/wugnot"
 )
 
-var one = u256.One()
+var (
+	one = u256.One()
+
+	maxInt64 = int64(^uint64(0) >> 1)
+)
 
 // ErrorMessages define all error message templates used throughout the router
 const (
@@ -29,6 +32,17 @@ const (
 	errQuoteExceedsMax      = "quote(%s) at index(%d) must be less than or equal to %d"
 	errQuoteSumExceedsMax   = "quote sum exceeds 100 at index(%d)"
 	errInvalidQuoteSum      = "quote sum(%d) must be 100"
+
+	// balance and overflow validation
+	errOverflowInBalance  = "overflow in balance calculation: beforeBalance(%d) + wrappedAmount(%d)"
+	errTooMuchWugnotSpent = "too much wugnot spent (wrapped: %d, spend: %d)"
+
+	// swap type validation
+	errExactInTooFewReceived = "ExactIn: too few received (min:%s, got:%s)"
+	errExactOutTooMuchSpent  = "ExactOut: too much spent (max:%s, used:%s)"
+
+	// route parsing validation
+	errEmptyRoutes = "routes cannot be empty"
 )
 
 // GnotSwapHandler encapsulates methods for handling GNOT token swaps
@@ -38,7 +52,7 @@ type GnotSwapHandler struct {
 	NewBalance    int64
 }
 
-// newGnotSwapHandler creates a new handler for GNOT swaps
+// newGnotSwapHandler creates a new handler for GNOT swaps.
 func newGnotSwapHandler(beforeBalance, wrappedAmount int64) *GnotSwapHandler {
 	return &GnotSwapHandler{
 		BeforeBalance: beforeBalance,
@@ -46,37 +60,39 @@ func newGnotSwapHandler(beforeBalance, wrappedAmount int64) *GnotSwapHandler {
 	}
 }
 
-// UpdateNewBalance updates the current balance after swap operations
+// UpdateNewBalance updates the current balance after swap operations.
 func (h *GnotSwapHandler) UpdateNewBalance() {
 	h.NewBalance = wugnot.BalanceOf(std.PreviousRealm().Address())
 }
 
-// HandleInputSwap manages unwrapping logic for GNOT input tokens
-// Returns error if validation fails
+// HandleInputSwap manages unwrapping logic for GNOT input tokens.
 func (h *GnotSwapHandler) HandleInputSwap() error {
+	// Check for overflow when adding balances
+	if h.BeforeBalance > 0 && h.WrappedAmount > 0 {
+		if h.BeforeBalance > (1<<63-1)-h.WrappedAmount {
+			return ufmt.Errorf(errOverflowInBalance,
+				h.BeforeBalance, h.WrappedAmount)
+		}
+	}
+
 	totalBefore := h.BeforeBalance + h.WrappedAmount
 	spend := totalBefore - h.NewBalance
 
 	if spend > h.WrappedAmount {
-		return ufmt.Errorf("too much wugnot spent (wrapped: %d, spend: %d)",
+		return ufmt.Errorf(errTooMuchWugnotSpent,
 			h.WrappedAmount, spend)
 	}
 
 	toUnwrap := h.WrappedAmount - spend
-	unwrap(toUnwrap)
-	return nil
-}
 
-// HandleOutputSwap manages unwrapping logic for GNOT output tokens
-func (h *GnotSwapHandler) HandleOutputSwap() {
-	userRecvWugnot := h.NewBalance - h.BeforeBalance - h.WrappedAmount
-	unwrap(userRecvWugnot)
+	caller := std.PreviousRealm().Address()
+	return unwrapWithTransferFrom(caller, caller, toUnwrap)
 }
 
 // SwapValidator provides validation methods for swap operations
 type SwapValidator struct{}
 
-// exactOutAmount checks if output amount meets specified requirements
+// exactOutAmount checks if output amount meets specified requirements.
 func (v *SwapValidator) exactOutAmount(resultAmount, specifiedAmount *u256.Uint) error {
 	if resultAmount.Gte(specifiedAmount) {
 		return nil
@@ -89,17 +105,17 @@ func (v *SwapValidator) exactOutAmount(resultAmount, specifiedAmount *u256.Uint)
 	return nil
 }
 
-// slippage ensures swap amounts meet slippage requirements
+// slippage ensures swap amounts meet slippage requirements.
 func (v *SwapValidator) slippage(swapType SwapType, amountIn, amountOut, limit *u256.Uint) error {
 	switch swapType {
 	case ExactIn:
 		if amountOut.Lt(limit) {
-			return ufmt.Errorf("ExactIn: too few received (min:%s, got:%s)",
+			return ufmt.Errorf(errExactInTooFewReceived,
 				limit.ToString(), amountOut.ToString())
 		}
 	case ExactOut:
 		if amountIn.Gt(limit) {
-			return ufmt.Errorf("ExactOut: too much spent (max:%s, used:%s)",
+			return ufmt.Errorf(errExactOutTooMuchSpent,
 				limit.ToString(), amountIn.ToString())
 		}
 	default:
@@ -108,7 +124,7 @@ func (v *SwapValidator) slippage(swapType SwapType, amountIn, amountOut, limit *
 	return nil
 }
 
-// swapType ensures the swap type string is valid
+// swapType ensures the swap type string is valid.
 func (v *SwapValidator) swapType(swapTypeStr string) (SwapType, error) {
 	swapType, err := trySwapTypeFromStr(swapTypeStr)
 	if err != nil {
@@ -117,7 +133,7 @@ func (v *SwapValidator) swapType(swapTypeStr string) (SwapType, error) {
 	return swapType, nil
 }
 
-// amount ensures the amount is properly formatted and positive
+// amount ensures the amount is properly formatted and positive.
 func (v *SwapValidator) amount(amount string) (*i256.Int, error) {
 	parsedAmount := i256.MustFromDecimal(amount)
 	if parsedAmount.Lt(i256.Zero()) {
@@ -126,7 +142,7 @@ func (v *SwapValidator) amount(amount string) (*i256.Int, error) {
 	return parsedAmount, nil
 }
 
-// amountLimit ensures the amount limit is properly formatted and non-zero
+// amountLimit ensures the amount limit is properly formatted and non-zero.
 func (v *SwapValidator) amountLimit(amountLimit string) (*i256.Int, error) {
 	parsedLimit := i256.MustFromDecimal(amountLimit)
 	if parsedLimit.IsZero() {
@@ -138,12 +154,18 @@ func (v *SwapValidator) amountLimit(amountLimit string) (*i256.Int, error) {
 // RouteParser handles parsing and validation of routes and quotes
 type RouteParser struct{}
 
+// NewRouteParser creates a new route parser instance.
 func NewRouteParser() *RouteParser {
 	return &RouteParser{}
 }
 
-// ParseRoutes parses route and quote strings into slices and validates them
+// ParseRoutes parses route and quote strings into slices and validates them.
 func (p *RouteParser) ParseRoutes(routes, quotes string) ([]string, []string, error) {
+	// Check for empty routes
+	if routes == "" || quotes == "" {
+		return nil, nil, ufmt.Errorf(errEmptyRoutes)
+	}
+
 	routesArr := splitSingleChar(routes, ',')
 	quotesArr := splitSingleChar(quotes, ',')
 
@@ -154,7 +176,7 @@ func (p *RouteParser) ParseRoutes(routes, quotes string) ([]string, []string, er
 	return routesArr, quotesArr, nil
 }
 
-// ValidateRoutesAndQuotes ensures routes and quotes meet required criteria
+// ValidateRoutesAndQuotes ensures routes and quotes meet required criteria.
 func (p *RouteParser) ValidateRoutesAndQuotes(routes, quotes []string) error {
 	rr := len(routes)
 	qq := len(quotes)
@@ -170,7 +192,7 @@ func (p *RouteParser) ValidateRoutesAndQuotes(routes, quotes []string) error {
 	return p.ValidateQuoteSum(quotes)
 }
 
-// ValidateQuoteSum ensures all quotes add up to 100%
+// ValidateQuoteSum ensures all quotes add up to 100%.
 func (p *RouteParser) ValidateQuoteSum(quotes []string) error {
 	const (
 		maxQuote int8 = 100
@@ -210,8 +232,7 @@ func (p *RouteParser) ValidateQuoteSum(quotes []string) error {
 	return nil
 }
 
-// FinalizeSwap handles post-swap operations and validations
-// Returns input and output amount strings after processing
+// finalizeSwap handles post-swap operations and validations.
 func finalizeSwap(
 	inputToken, outputToken string,
 	resultAmountIn, resultAmountOut *u256.Uint,
@@ -219,7 +240,7 @@ func finalizeSwap(
 	tokenAmountLimit *u256.Uint,
 	userBeforeWugnotBalance, userWrappedWugnot int64,
 	amountSpecified *u256.Uint,
-) (string, string) {
+) (*i256.Int, *i256.Int) {
 	validator := &SwapValidator{}
 
 	// Validate exact out amount if applicable
@@ -237,10 +258,8 @@ func finalizeSwap(
 	handler.UpdateNewBalance()
 
 	var err error
-	if inputToken == consts.GNOT {
+	if inputToken == gnot {
 		err = handler.HandleInputSwap()
-	} else if outputToken == consts.GNOT {
-		handler.HandleOutputSwap()
 	}
 
 	if err != nil {
@@ -253,12 +272,11 @@ func finalizeSwap(
 
 	// calculate final amounts
 	intAmountOut := i256.FromUint256(resultAmountOutWithoutFee)
-	negativeOut := i256.Zero().Neg(intAmountOut).ToString()
 
-	return resultAmountIn.ToString(), negativeOut
+	return i256.FromUint256(resultAmountIn), intAmountOut
 }
 
-// validateRoutesAndQuotes is a convenience function that parses and validates routes in one call
+// validateRoutesAndQuotes is a convenience function that parses and validates routes in one call.
 func validateRoutesAndQuotes(routes, quotes string) ([]string, []string, error) {
 	return NewRouteParser().ParseRoutes(routes, quotes)
 }

@@ -8,7 +8,7 @@ import (
 	"std"
 	"time"
 
-	"gno.land/p/demo/avl"
+	"gno.land/p/nt/avl"
 	"gno.land/p/nt/commondao"
 	"gno.land/r/volos/gov/xvls"
 )

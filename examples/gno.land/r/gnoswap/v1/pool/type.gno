@@ -2,14 +2,14 @@ package pool
 
 import (
 	"std"
+	"time"
 
-	"gno.land/p/demo/avl"
-
-	"gno.land/p/gnoswap/consts"
-	"gno.land/r/gnoswap/v1/common"
+	"gno.land/p/nt/avl"
 
 	i256 "gno.land/p/gnoswap/int256"
 	u256 "gno.land/p/gnoswap/uint256"
+
+	"gno.land/r/gnoswap/v1/common"
 )
 
 type PositionInfo struct {
@@ -96,8 +96,8 @@ func newSwapCache(
 }
 
 // SwapState tracks the changing values during a swap.
-// This type helps manage the state transiktions that occur as the swap progresses
-// accross different price ranges.
+// This type helps manage the state transitions that occur as the swap progresses
+// across different price ranges.
 type SwapState struct {
 	amountSpecifiedRemaining *i256.Int  // amount remaining to be swapped in/out of the input/output token
 	amountCalculated         *i256.Int  // amount already swapped out/in of the output/input token
@@ -125,8 +125,8 @@ func newSwapState(
 	}
 }
 
-func (s *SwapState) setSqrtPriceX96(sqrtPriceX96 string) {
-	s.sqrtPriceX96 = u256.MustFromDecimal(sqrtPriceX96)
+func (s *SwapState) setSqrtPriceX96(sqrtPriceX96 *u256.Uint) {
+	s.sqrtPriceX96 = sqrtPriceX96.Clone()
 }
 
 func (s *SwapState) setTick(tick int32) {
@@ -173,10 +173,10 @@ func (step *StepComputations) initSwapStep(state SwapState, pool *Pool, zeroForO
 // clampTickNext ensures that `tickNext` stays within the min, max tick boundaries
 // as the tick bitmap is not aware of these bounds
 func (step *StepComputations) clampTickNext() {
-	if step.tickNext < consts.MIN_TICK {
-		step.tickNext = consts.MIN_TICK
-	} else if step.tickNext > consts.MAX_TICK {
-		step.tickNext = consts.MAX_TICK
+	if step.tickNext < MIN_TICK {
+		step.tickNext = MIN_TICK
+	} else if step.tickNext > MAX_TICK {
+		step.tickNext = MAX_TICK
 	}
 }
 
@@ -286,14 +286,6 @@ func newPool(poolInfo *poolCreateConfig) *Pool {
 		ticks:                avl.NewTree(),
 		tickBitmaps:          avl.NewTree(),
 		positions:            avl.NewTree(),
+		observation:          newObservation(time.Now().Unix()),
 	}
-}
-
-var tickCrossHook func(poolPath string, tickId int32, zeroForOne bool)
-
-func SetTickCrossHook(cur realm, hook func(poolPath string, tickId int32, zeroForOne bool)) {
-	if tickCrossHook != nil {
-		panic("tickCrossHook already set")
-	}
-	tickCrossHook = hook
 }

@@ -4,85 +4,45 @@ import (
 	"std"
 	"time"
 
-	"gno.land/p/demo/avl"
-	"gno.land/p/demo/ufmt"
-
-	"gno.land/p/gnoswap/consts"
-
+	"gno.land/r/gnoswap/access"
+	"gno.land/r/gnoswap/gns"
+	"gno.land/r/gnoswap/halt"
+	"gno.land/r/gnoswap/referral"
 	"gno.land/r/gnoswap/v1/common"
-	"gno.land/r/gnoswap/v1/gns"
 	gov_staker "gno.land/r/gnoswap/v1/gov/staker"
 	"gno.land/r/gnoswap/v1/gov/xgns"
-	"gno.land/r/gnoswap/v1/referral"
 )
 
-var (
-	// depositId -> Deposit
-	deposits = avl.NewTree()
-)
-
-// DepositGns handles the deposit process for a specific project tier.
-//
-// This function validates the deposit conditions, checks the activation status of the project and tier,
-// and creates a new deposit for the caller. It updates the project, tier, and reward states accordingly.
+// DepositGns deposits GNS tokens to a launchpad project tier.
 //
 // Parameters:
-// - targetProjectTierId (string): The ID of the target project and tier in the format "{projectId}:{tierType}".
-// - amount (uint64): The amount to deposit.
-// - referrer (string): The referrer address.
+//   - targetProjectTierID: format "{projectId}:{tierType}"
+//   - depositAmount: amount of GNS to deposit
+//   - referrer: referral address (optional)
 //
-// Returns:
-// - string: The ID of the newly created deposit.
-//
-// Panics:
-// - If the system is halted.
-// - If the amount is invalid (e.g., zero).
-// - If the project or tier is inactive.
-// - If the deposit conditions are not satisfied.
-// - If an error occurs during deposit creation or reward state update.
-//
-// Logic:
-// 1. **Validation**:
-//   - Check if the system is halted or the deposit amount is valid.
-//   - Retrieve the project and validate its activation status.
-//   - Validate deposit conditions for the caller.
-//   - Retrieve and validate the tier's activation status.
-//
-// 2. **Deposit Creation**:
-//   - Create a deposit using the project and tier information.
-//   - Update deposit indices and tier details (e.g., `StartHeight`, `TierAmountPerBlockX128`).
-//
-// 3. **Reward Updates**:
-//   - Update the tier's reward state, including reward per deposit and participant counts.
-//   - Update the project's stats (e.g., total deposit amount, participant count).
-//
-// 4. **Transfer and Lock Tokens**:
-//   - Transfer the deposit amount to the `launchpad` contract and mint `xGNS` tokens.
-//
-// 5. **Emit Events**:
-//   - Emit events for both the deposit and the first deposit for the tier (if applicable).
-//
-// ref: https://docs.gnoswap.io/contracts/launchpad/launchpad_deposit.gno#depositgns
+// Returns deposit ID.
 func DepositGns(cur realm, targetProjectTierID string, depositAmount int64, referrer string) string {
-	previousAddress := std.PreviousRealm().Address()
-	previousPkgPath := std.PreviousRealm().PkgPath()
+	halt.AssertIsNotHaltedLaunchpad()
 
-	assertOnlyNotHalted()
-	assertOnlyUser()
-	assertValidAmount(depositAmount)
+	previousRealm := std.PreviousRealm()
+	access.AssertIsUser(previousRealm)
+
+	assertIsValidAmount(depositAmount)
 
 	projectID, tierDuration := parseProjectTierID(targetProjectTierID)
-	deposit, rewardState, isFirstDeposit, distributeAmountPerBlockX128, err := depositGns(
+	caller := previousRealm.Address()
+
+	deposit, rewardState, isFirstDeposit, distributeAmountPerSecondX128, err := depositGns(
 		projectID,
 		tierDuration,
 		depositAmount,
-		previousAddress,
+		caller,
 	)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	actualReferrer, success := registerReferral(referrer, previousAddress)
+	actualReferrer, success := registerReferral(referrer, caller)
 	if !success {
 		actualReferrer = referral.GetReferral(std.PreviousRealm().Address().String())
 	}
@@ -90,25 +50,23 @@ func DepositGns(cur realm, targetProjectTierID string, depositAmount int64, refe
 	if isFirstDeposit {
 		std.Emit(
 			"FirstDepositForProjectTier",
-			"prevAddr", previousAddress.String(),
-			"prevRealm", previousPkgPath,
+			"prevAddr", previousRealm.Address().String(),
+			"prevRealm", previousRealm.PkgPath(),
 			"targetProjectTierId", targetProjectTierID,
 			"amount", formatInt(depositAmount),
 			"depositId", deposit.ID(),
-			"claimableHeight", formatInt(rewardState.ClaimableHeight()),
 			"claimableTime", formatInt(rewardState.ClaimableTime()),
-			"tierAmountPerBlockX128", distributeAmountPerBlockX128,
+			"tierAmountPerSecondX128", distributeAmountPerSecondX128,
 		)
 	}
 
 	std.Emit(
 		"DepositGns",
-		"prevAddr", previousAddress.String(),
-		"prevRealm", previousPkgPath,
+		"prevAddr", previousRealm.Address().String(),
+		"prevRealm", previousRealm.PkgPath(),
 		"targetProjectTierId", targetProjectTierID,
 		"amount", formatInt(depositAmount),
 		"depositId", deposit.ID(),
-		"claimableHeight", formatInt(rewardState.ClaimableHeight()),
 		"claimableTime", formatInt(rewardState.ClaimableTime()),
 		"referrer", actualReferrer,
 	)
@@ -116,7 +74,7 @@ func DepositGns(cur realm, targetProjectTierID string, depositAmount int64, refe
 	launchpadAddress := std.CurrentRealm().Address()
 
 	// stake governance token to the project
-	err = stakeGovernance(projectID, depositAmount, launchpadAddress, previousAddress)
+	err = stakeGovernance(projectID, depositAmount, launchpadAddress, caller)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -124,26 +82,7 @@ func DepositGns(cur realm, targetProjectTierID string, depositAmount int64, refe
 	return deposit.ID()
 }
 
-// depositGns deposits GNS to a project tier
-//
-// Parameters:
-// - projectID (string): The ID of the project.
-// - tierDuration (int64): The duration of the tier.
-// - depositAmount (int64): The amount of the deposit.
-// - callerAddress (std.Address): The address of the caller.
-//
-// Returns:
-// - *Deposit: The deposit created.
-// - *RewardState: The reward state for the deposit.
-// - bool: Whether this is the first deposit for the tier.
-// - string: The distribute amount per block in Q128 format.
-// - error: If the deposit creation fails, returns an error.
-//
-// Panics:
-// - If the project is not found.
-// - If the project tier is not found.
-// - If the reward manager is not found.
-// - If the deposit creation fails.
+// depositGns deposits GNS to a project tier.
 func depositGns(
 	projectID string,
 	tierDuration int64,
@@ -156,37 +95,42 @@ func depositGns(
 	}
 
 	balanceOfFn := func(tokenPath string, caller std.Address) int64 {
-		if tokenPath == consts.GOV_XGNS_PATH {
+		if tokenPath == GOV_XGNS_PATH {
 			return xgns.BalanceOf(caller)
 		}
 
 		return common.BalanceOf(tokenPath, caller)
 	}
 
-	project.CheckConditions(callerAddress, balanceOfFn)
+	err = project.CheckConditions(callerAddress, balanceOfFn)
+	if err != nil {
+		return nil, nil, false, "", err
+	}
 
 	projectTier, err := project.getTier(tierDuration)
 	if err != nil {
 		return nil, nil, false, "", err
 	}
 
+	currentTime := time.Now().Unix()
 	currentHeight := std.ChainHeight()
 
-	if !projectTier.isActivated(currentHeight) {
+	if !projectTier.isActivated(currentTime) {
 		return nil, nil, false, "", makeErrorWithDetails(errInactiveProject, projectID)
 	}
 
-	currentTime := time.Now().Unix()
-	createdBlockTimeInfo := newBlockTimeInfo(currentTime, currentHeight)
+	depositID := nextDepositID()
 	deposit := NewDeposit(
+		depositID,
 		projectID,
 		tierDuration,
 		callerAddress,
 		depositAmount,
-		createdBlockTimeInfo,
-		projectTier.endBlockTimeInfo,
+		currentHeight,
+		currentTime,
+		projectTier.endTime,
 	)
-	deposits.Set(deposit.ID(), deposit)
+	deposits.Set(depositID, deposit)
 
 	projectTier.deposit(deposit)
 
@@ -197,9 +141,9 @@ func depositGns(
 
 	isFirstDeposit := !rewardManager.IsInitialized()
 
-	rewardState := rewardManager.addRewardStateByDeposit(deposit, currentHeight)
+	rewardState := rewardManager.addRewardStateByDeposit(deposit)
 
-	err = rewardManager.updateRewardPerDepositX128(projectTier.CurrentDepositAmount(), currentHeight)
+	err = rewardManager.updateRewardPerDepositX128(projectTier.CurrentDepositAmount(), currentHeight, currentTime)
 	if err != nil {
 		return nil, nil, false, "", err
 	}
@@ -207,22 +151,11 @@ func depositGns(
 	return deposit,
 		rewardState,
 		isFirstDeposit,
-		rewardManager.DistributeAmountPerBlockX128().ToString(),
+		rewardManager.DistributeAmountPerSecondX128().ToString(),
 		nil
 }
 
-// registerReferral registers a referral for a caller
-//
-// Parameters:
-// - referrer (string): The referrer address.
-// - callerAddress (std.Address): The address of the caller.
-//
-// Returns:
-// - string: The actual referrer address.
-// - bool: Whether the referral registration was successful.
-//
-// Panics:
-// - If the referral registration fails.
+// registerReferral registers a referral for a caller.
 func registerReferral(referrer string, callerAddress std.Address) (string, bool) {
 	success := referral.TryRegister(cross, callerAddress, referrer)
 	actualReferrer := referrer
@@ -233,26 +166,14 @@ func registerReferral(referrer string, callerAddress std.Address) (string, bool)
 	return actualReferrer, success
 }
 
-// stakeGovernance stakes governance token to the project
-//
-// Parameters:
-// - projectID (string): The ID of the project.
-// - depositAmount (int64): The amount of the deposit.
-// - launchpadAddress (std.Address): The address of the launchpad.
-// - callerAddress (std.Address): The address of the caller.
-//
-// Returns:
-// - error: If the governance token staking fails, returns an error.
-//
-// Panics:
-// - If the project is not found.
+// stakeGovernance stakes governance token to the project.
 func stakeGovernance(projectID string, depositAmount int64, launchpadAddress std.Address, callerAddress std.Address) error {
 	project, err := getProject(projectID)
 	if err != nil {
 		return err
 	}
 
-	gov_staker.SetAmountByProjectWallet(cross, project.Recipient(), uint64(depositAmount), true)
+	gov_staker.SetAmountByProjectWallet(cross, project.Recipient(), depositAmount, true)
 
 	gns.TransferFrom(
 		cross,
@@ -261,16 +182,7 @@ func stakeGovernance(projectID string, depositAmount int64, launchpadAddress std
 		depositAmount,
 	)
 
-	xgns.Mint(cross, launchpadAddress, depositAmount)
+	xgns.MintByLaunchPad(cross, launchpadAddress, depositAmount)
 
 	return nil
-}
-
-func getDeposit(depositID string) (*Deposit, error) {
-	depositI, ok := deposits.Get(depositID)
-	if !ok {
-		return nil, makeErrorWithDetails(errNotExistDeposit, ufmt.Sprintf("(%s)", depositID))
-	}
-
-	return depositI.(*Deposit), nil
 }

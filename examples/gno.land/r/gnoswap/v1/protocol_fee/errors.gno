@@ -3,7 +3,7 @@ package protocol_fee
 import (
 	"errors"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 )
 
 var (
@@ -12,7 +12,7 @@ var (
 	errInvalidAmount = errors.New("[GNOSWAP-PROTOCOL_FEE-003] invalid amount")
 )
 
-func addDetailToError(err error, detail string) string {
-	finalErr := ufmt.Errorf("%s || %s", err.Error(), detail)
-	return finalErr.Error()
+// makeErrorWithDetail creates an error with additional context.
+func makeErrorWithDetail(err error, detail string) error {
+	return ufmt.Errorf("%s || %s", err.Error(), detail)
 }

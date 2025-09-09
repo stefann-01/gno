@@ -4,8 +4,8 @@ import (
 	"std"
 	"time"
 
-	"gno.land/p/demo/avl"
-	"gno.land/p/demo/ownable"
+	"gno.land/p/nt/avl"
+	"gno.land/p/nt/ownable"
 
 	u256 "gno.land/p/gnoswap/uint256"
 	"gno.land/p/volos/consts"
@@ -49,7 +49,7 @@ func init() {
 	authorizers = avl.NewTree()
 
 	// Set initial owner
-	Ownable = ownable.NewWithAddress(std.Address("g1tzl3sgre0c2zgxfpws9xhq0c069wf7zqh6aqqy"))
+	Ownable = ownable.NewWithOrigin()
 }
 
 // RegisterIRM registers a new interest rate model
@@ -154,7 +154,7 @@ func CreateMarket(cur realm, poolPath string, isToken0Loan bool, irm string, llt
 	}
 
 	// Verify pool exists in Gnoswap
-	if !pl.DoesPoolPathExist(poolPath) {
+	if !pl.ExistsPoolPath(poolPath) {
 		panic(ErrTokenPairNotInGnoswap)
 	}
 

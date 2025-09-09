@@ -1,13 +1,30 @@
 package common
 
 import (
-	"gno.land/p/demo/ufmt"
-	"gno.land/p/gnoswap/consts"
+	"gno.land/p/nt/ufmt"
 	u256 "gno.land/p/gnoswap/uint256"
 )
 
-// toAscendingOrder checks if the first value is greater than
-// the second then swaps two values.
+const (
+	Q96_RESOLUTION  = 96
+	Q128_RESOLUTION = 128
+	MAX_UINT128     = "340282366920938463463374607431768211455" // 2^128 - 1
+	Q96             = "79228162514264337593543950336"           // 2^96
+)
+
+var (
+	maxUint128 = u256.MustFromDecimal(MAX_UINT128)
+	q96Uint    = u256.MustFromDecimal(Q96)
+	q128Mask   = func() *u256.Uint {
+		mask := u256.Zero().Lsh(u256.One(), Q128_RESOLUTION)
+		mask = u256.Zero().Sub(mask, u256.One())
+		return mask
+	}()
+	// only used for return value
+	zero = u256.Zero()
+)
+
+// toAscendingOrder returns the two values in ascending order.
 func toAscendingOrder(a, b *u256.Uint) (*u256.Uint, *u256.Uint) {
 	if a.Gt(b) {
 		return b, a
@@ -16,30 +33,30 @@ func toAscendingOrder(a, b *u256.Uint) (*u256.Uint, *u256.Uint) {
 	return a, b
 }
 
-// toUint128 ensures a *u256.Uint value fits within the uint128 range.
+// toUint128 ensures the value fits within uint128 range.
 //
-// This function validates that the given `value` is properly initialized (not nil) and checks whether
-// it exceeds the maximum value of uint128. If the value exceeds the uint128 range,
-// it applies a masking operation to truncate the value to fit within the uint128 limit.
+// Validates and constrains a 256-bit unsigned integer to 128-bit range.
+// Used for liquidity calculations where amounts must fit in compact storage.
 //
 // Parameters:
-//   - value: *u256.Uint, the value to be checked and possibly truncated.
+//   - value: 256-bit unsigned integer to constrain
 //
 // Returns:
-//   - *u256.Uint: A value guaranteed to fit within the uint128 range.
+//   - Masked value if exceeds MAX_UINT128 (2^128 - 1)
+//   - Original value if within range
 //
-// Notes:
-//   - The function first checks if the value is not nil to avoid potential runtime errors.
-//   - The mask ensures that only the lower 128 bits of the value are retained.
-//   - If the input value is already within the uint128 range, it is returned unchanged.
-//   - If masking is required, a new instance is returned without modifying the input.
-//   - MAX_UINT128 is a constant representing `2^128 - 1`.
+// Panics if value is nil.
+// Critical for preventing overflow in liquidity math.
 func toUint128(value *u256.Uint) *u256.Uint {
-	assertOnlyNotNil(value)
-	if value.Gt(u256.MustFromDecimal(consts.MAX_UINT128)) {
-		mask := new(u256.Uint).Lsh(u256.One(), consts.Q128_RESOLUTION)
-		mask = new(u256.Uint).Sub(mask, u256.One())
-		return new(u256.Uint).And(value, mask)
+	if value == nil {
+		panic(newErrorWithDetail(
+			errInvalidInput,
+			"value is nil",
+		))
+	}
+
+	if value.Gt(maxUint128) {
+		return u256.Zero().And(value, q128Mask)
 	}
 	return value
 }
@@ -67,7 +84,7 @@ func toUint128(value *u256.Uint) *u256.Uint {
 // validUint128 := safeConvertToUint128(u256.MustFromDecimal("340282366920938463463374607431768211455")) // Valid
 // safeConvertToUint128(u256.MustFromDecimal("340282366920938463463374607431768211456")) // Panics due to overflow
 func safeConvertToUint128(value *u256.Uint) *u256.Uint {
-	if value.Gt(u256.MustFromDecimal(consts.MAX_UINT128)) {
+	if value.Gt(maxUint128) {
 		panic(ufmt.Sprintf(
 			"%v: amount(%s) overflows uint128 range",
 			errOverFlow, value.ToString()))
@@ -92,9 +109,9 @@ func safeConvertToUint128(value *u256.Uint) *u256.Uint {
 //   - If the resulting liquidity exceeds the uint128 range, `safeConvertToUint128` will trigger a panic.
 func computeLiquidityForAmount0(sqrtRatioAX96, sqrtRatioBX96, amount0 *u256.Uint) *u256.Uint {
 	sqrtRatioAX96, sqrtRatioBX96 = toAscendingOrder(sqrtRatioAX96, sqrtRatioBX96)
-	intermediate := u256.MulDiv(sqrtRatioAX96, sqrtRatioBX96, u256.MustFromDecimal(consts.Q96))
+	intermediate := u256.MulDiv(sqrtRatioAX96, sqrtRatioBX96, q96Uint)
 
-	diff := new(u256.Uint).Sub(sqrtRatioBX96, sqrtRatioAX96)
+	diff := u256.Zero().Sub(sqrtRatioBX96, sqrtRatioAX96)
 	if diff.IsZero() {
 		panic(newErrorWithDetail(
 			errIdenticalTicks,
@@ -129,14 +146,14 @@ func computeLiquidityForAmount0(sqrtRatioAX96, sqrtRatioBX96, amount0 *u256.Uint
 func computeLiquidityForAmount1(sqrtRatioAX96, sqrtRatioBX96, amount1 *u256.Uint) *u256.Uint {
 	sqrtRatioAX96, sqrtRatioBX96 = toAscendingOrder(sqrtRatioAX96, sqrtRatioBX96)
 
-	diff := new(u256.Uint).Sub(sqrtRatioBX96, sqrtRatioAX96)
+	diff := u256.Zero().Sub(sqrtRatioBX96, sqrtRatioAX96)
 	if diff.IsZero() {
 		panic(newErrorWithDetail(
 			errIdenticalTicks,
 			ufmt.Sprintf("sqrtRatioAX96 (%s) and sqrtRatioBX96 (%s) are identical", sqrtRatioAX96.ToString(), sqrtRatioBX96.ToString()),
 		))
 	}
-	res := u256.MulDiv(amount1, u256.MustFromDecimal(consts.Q96), diff)
+	res := u256.MulDiv(amount1, q96Uint, diff)
 	return safeConvertToUint128(res)
 }
 
@@ -161,9 +178,10 @@ func computeLiquidityForAmount1(sqrtRatioAX96, sqrtRatioBX96, amount1 *u256.Uint
 //   - The `Clone` method is used to prevent modification of the original values during computation.
 //   - The function ensures that liquidity calculations handle edge cases when the current price
 //     is outside the specified range by returning liquidity based on the dominant token.
-func GetLiquidityForAmounts(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1 *u256.Uint) *u256.Uint {
+//
+// TODO: consider to reduce the number of clones (after confirmed this logic is correct)
+func GetLiquidityForAmounts(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1 *u256.Uint) (liquidity *u256.Uint) {
 	sqrtRatioAX96, sqrtRatioBX96 = toAscendingOrder(sqrtRatioAX96.Clone(), sqrtRatioBX96.Clone())
-	var liquidity *u256.Uint
 
 	if sqrtRatioX96.Lte(sqrtRatioAX96) {
 		liquidity = computeLiquidityForAmount0(sqrtRatioAX96.Clone(), sqrtRatioBX96.Clone(), amount0.Clone())
@@ -203,14 +221,14 @@ func GetLiquidityForAmounts(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, amount0,
 func computeAmount0ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity *u256.Uint) *u256.Uint {
 	sqrtRatioAX96, sqrtRatioBX96 = toAscendingOrder(sqrtRatioAX96, sqrtRatioBX96)
 	if sqrtRatioAX96.IsZero() || sqrtRatioBX96.IsZero() || liquidity.IsZero() || sqrtRatioAX96.Eq(sqrtRatioBX96) {
-		return u256.Zero()
+		return zero
 	}
 
-	val1 := new(u256.Uint).Lsh(liquidity, consts.Q96_RESOLUTION)
-	val2 := new(u256.Uint).Sub(sqrtRatioBX96, sqrtRatioAX96)
+	val1 := u256.Zero().Lsh(liquidity, Q96_RESOLUTION)
+	val2 := u256.Zero().Sub(sqrtRatioBX96, sqrtRatioAX96)
 
 	res := u256.MulDiv(val1, val2, sqrtRatioBX96)
-	res = new(u256.Uint).Div(res, sqrtRatioAX96)
+	res = res.Div(res, sqrtRatioAX96)
 
 	return res
 }
@@ -238,11 +256,11 @@ func computeAmount0ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity *u256.Ui
 func computeAmount1ForLiquidity(sqrtRatioAX96, sqrtRatioBX96, liquidity *u256.Uint) *u256.Uint {
 	sqrtRatioAX96, sqrtRatioBX96 = toAscendingOrder(sqrtRatioAX96, sqrtRatioBX96)
 	if liquidity.IsZero() || sqrtRatioAX96.Eq(sqrtRatioBX96) {
-		return u256.Zero()
+		return zero
 	}
 
-	diff := new(u256.Uint).Sub(sqrtRatioBX96, sqrtRatioAX96)
-	res := u256.MulDiv(liquidity, diff, u256.MustFromDecimal(consts.Q96))
+	diff := u256.Zero().Sub(sqrtRatioBX96, sqrtRatioAX96)
+	res := u256.MulDiv(liquidity, diff, q96Uint)
 
 	return res
 }

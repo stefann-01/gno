@@ -1,12 +1,16 @@
 package router
 
 import (
-	"gno.land/r/gnoswap/v1/access"
+	prabc "gno.land/p/gnoswap/rbac"
+
+	"gno.land/r/gnoswap/access"
 )
 
+const maxApprove int64 = 9223372036854775807
+
 var (
-	poolAddr, _        = access.GetAddress(access.ROLE_POOL)
-	routerAddr, _      = access.GetAddress(access.ROLE_ROUTER)
-	positionAddr, _    = access.GetAddress(access.ROLE_POSITION)
-	protocolFeeAddr, _ = access.GetAddress(access.ROLE_PROTOCOL_FEE)
+	poolAddr, _        = access.GetAddress(prabc.ROLE_POOL.String())
+	routerAddr, _      = access.GetAddress(prabc.ROLE_ROUTER.String())
+	positionAddr, _    = access.GetAddress(prabc.ROLE_POSITION.String())
+	protocolFeeAddr, _ = access.GetAddress(prabc.ROLE_PROTOCOL_FEE.String())
 )

@@ -2,67 +2,34 @@ package rbac
 
 import (
 	"std"
-
-	"gno.land/p/demo/ufmt"
 )
 
-// PermissionChecker is a function type
-// that validates permissions for a caller.
-type PermissionChecker func(caller std.Address) error
-
-// Role represents a role information structure.
+// Role represents a role with a name and an assigned address.
 type Role struct {
 	// name represents the role's identifier
-	name string
-	// permissions maps permission names to their respective checker functions
-	permissions map[string]PermissionChecker
-	addresses   map[std.Address]struct{}
+	name    string
+	address string
 }
 
-// NewRole creates a new `Role` instance with given name.
+// NewRole creates a new Role instance with roleName.
 func NewRole(roleName string) *Role {
 	return &Role{
-		name:        roleName,
-		permissions: make(map[string]PermissionChecker),
-		addresses:   make(map[std.Address]struct{}),
+		name:    roleName,
+		address: "",
 	}
 }
 
+// Name returns the role's name.
 func (r *Role) Name() string { return r.name }
 
-// AddPermission adds a given permission name and checker to the role.
-func (r *Role) AddPermission(permissionName string, checker PermissionChecker) {
-	r.permissions[permissionName] = checker
-}
+// Address returns the address assigned to this role. Returns empty address if no address is assigned.
+func (r *Role) Address() std.Address { return std.Address(r.address) }
 
-// HasPermission checks if the given permission name exists
-// in the role.
-func (r *Role) HasPermission(permissionName string) bool {
-	_, exists := r.permissions[permissionName]
-	return exists
-}
+// IsEmpty returns true if no address is assigned to this role.
+func (r *Role) IsEmpty() bool { return r.address == "" }
 
-// RoleOption is a function type for applying options during role creation.
-type RoleOption func(r *Role)
+// IsAuthorized returns true if addr matches the role's assigned address.
+func (r *Role) IsAuthorized(addr std.Address) bool { return r.address == addr.String() }
 
-// WithPermission returns an option that registers a permission name and checker
-// during role creation.
-func WithPermission(permissionName string, checker PermissionChecker) RoleOption {
-	return func(r *Role) {
-		r.AddPermission(permissionName, checker)
-	}
-}
-
-// DeclareRole registers a role and its permissions declaratively using the Functional Option pattern.
-// Returns an error if the role already exists.
-func (rb *RBAC) DeclareRole(roleName string, opts ...RoleOption) error {
-	if rb.hasRole(roleName) {
-		return ufmt.Errorf("role %s already exists", roleName)
-	}
-	role := NewRole(roleName)
-	for _, opt := range opts {
-		opt(role)
-	}
-	rb.roles[roleName] = role
-	return nil
-}
+// setAddress assigns addr to this role.
+func (r *Role) setAddress(addr std.Address) { r.address = addr.String() }

@@ -5,42 +5,40 @@ import (
 	"strconv"
 	"strings"
 
-	"gno.land/p/demo/avl"
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/avl"
+	"gno.land/p/nt/ufmt"
 
+	"gno.land/r/gnoswap/access"
+	"gno.land/r/gnoswap/halt"
 	"gno.land/r/gnoswap/v1/common"
-	"gno.land/r/gnoswap/v1/halt"
 )
 
-// DistributeProtocolFee distributes the protocol fee to devOps and gov/staker.
-// only `gov/staker` can execute this function.
-// It returns list of token with amount has been sent to gov/staker.
-func DistributeProtocolFee(cur realm) map[string]uint64 {
-	currentLevel := halt.GetCurrentHaltLevel()
-	if currentLevel != halt.LvMainnetSafeMode {
-		// Check if withdrawals are specifically halted, not just if the system is halted
-		if err := halt.IsHalted(halt.OpTypeWithdraw); err != nil {
-			panic(err)
-		}
+// DistributeProtocolFee distributes collected protocol fees.
+//
+// Splits fees between devOps and gov/staker based on configured percentages.
+// This function processes all accumulated fees since last distribution.
+//
+// Returns:
+//   - map[string]int64: Token paths to amounts distributed to gov/staker
+//
+// Only callable by admin or gov/staker contract.
+// Note: Default split is 0% devOps, 100% gov/staker.
+func DistributeProtocolFee(cur realm) map[string]int64 {
+	halt.AssertIsNotHaltedProtocolFee()
 
-		if halt.IsContractHalted(halt.OpTypeProtocolFee) {
-			panic("protocol fee contract operations are currently disabled")
-		}
-	}
+	caller := std.PreviousRealm().Address()
+	assertIsAdminOrGovStaker(caller)
 
-	assertOnlyGovStaker()
 	sentToDevOpsForEvent := make([]string, 0)
 	sentToGovStakerForEvent := make([]string, 0)
-	toReturnDistributedToGovStaker := make(map[string]uint64)
+	toReturnDistributedToGovStaker := make(map[string]int64)
 
-	for token, amount := range protocolFeeState.TokenListWithAmount {
-		balance := uint64(common.BalanceOf(token, protocolFeeAddr))
+	for token, amount := range protocolFeeState.tokenListWithAmount {
+		balance := common.BalanceOf(token, protocolFeeAddr)
 
-		// anyone can just send certain grc20 token to `protocol_fee` contract
-		// therefore, we don't need any guard logic to check whether protocol_fee's xxx token balance is equal to `amount`
-		// however, amount always should be less than or equal to balance
+		// amount should be less than or equal to balance
 		if amount > balance {
-			panic(addDetailToError(
+			panic(makeErrorWithDetail(
 				errInvalidAmount,
 				ufmt.Sprintf("amount: %d should be less than or equal to balance: %d", amount, balance),
 			))
@@ -57,8 +55,8 @@ func DistributeProtocolFee(cur realm) map[string]uint64 {
 			distributeAmount = balance
 		}
 
-		toDevOpsAmount := distributeAmount * protocolFeeState.DevOpsPct / 10000 // default 0%
-		toGovStakerAmount := distributeAmount - toDevOpsAmount                  // default 100%
+		toDevOpsAmount := distributeAmount * protocolFeeState.DevOpsPct() / 10000 // default 0%
+		toGovStakerAmount := distributeAmount - toDevOpsAmount                    // default 100%
 
 		// Distribute to DevOps
 		if err := protocolFeeState.distributeToDevOps(token, toDevOpsAmount); err != nil {
@@ -80,11 +78,11 @@ func DistributeProtocolFee(cur realm) map[string]uint64 {
 
 	protocolFeeState.clearTokenListWithAmount()
 
-	prevAddr, prevRealm := getPrev()
+	previousRealm := std.PreviousRealm()
 	std.Emit(
 		"TransferProtocolFee",
-		"prevAddr", prevAddr,
-		"prevRealm", prevRealm,
+		"prevAddr", previousRealm.Address().String(),
+		"prevRealm", previousRealm.PkgPath(),
 		"toDevOps", strings.Join(sentToDevOpsForEvent, ","),
 		"toGovStaker", strings.Join(sentToGovStakerForEvent, ","),
 	)
@@ -92,60 +90,142 @@ func DistributeProtocolFee(cur realm) map[string]uint64 {
 	return toReturnDistributedToGovStaker
 }
 
-func GetDevOpsPct() uint64 {
-	return protocolFeeState.DevOpsPct
-}
-
-// SetDevOpsPctByAdmin sets the devOpsPct.
-func SetDevOpsPctByAdmin(cur realm, pct uint64) {
-	caller := std.PreviousRealm().Address()
-	if err := common.AdminOnly(caller); err != nil {
-		panic(err)
-	}
-
-	protocolFeeState.setDevOpsPct(pct)
-}
-
 // SetDevOpsPct sets the devOpsPct.
-// Only governance contract can execute this function via proposal
-func SetDevOpsPct(cur realm, pct uint64) {
+//
+// Parameters:
+//   - pct: percentage for devOps (0-10000, where 10000 = 100%)
+//
+// Only callable by admin or governance.
+// Note: GovStaker percentage is automatically adjusted to (10000 - devOpsPct).
+func SetDevOpsPct(cur realm, pct int64) {
+	halt.AssertIsNotHaltedProtocolFee()
+
 	caller := std.PreviousRealm().Address()
-	if err := common.GovernanceOnly(caller); err != nil {
+	access.AssertIsAdminOrGovernance(caller)
+
+	assertIsValidPercent(pct)
+
+	prevDevOpsPct := protocolFeeState.DevOpsPct()
+	prevGovStakerPct := protocolFeeState.GovStakerPct()
+
+	newDevOpsPct, err := protocolFeeState.setDevOpsPct(pct)
+	if err != nil {
 		panic(err)
 	}
+	newGovStakerPct := protocolFeeState.GovStakerPct()
 
-	protocolFeeState.setDevOpsPct(pct)
+	previousRealm := std.PreviousRealm()
+	std.Emit(
+		"SetDevOpsPct",
+		"prevAddr", previousRealm.Address().String(),
+		"prevRealm", previousRealm.PkgPath(),
+		"newDevOpsPct", strconv.FormatInt(newDevOpsPct, 10),
+		"prevDevOpsPct", strconv.FormatInt(prevDevOpsPct, 10),
+		"newGovStakerPct", strconv.FormatInt(newGovStakerPct, 10),
+		"prevGovStakerPct", strconv.FormatInt(prevGovStakerPct, 10),
+	)
 }
 
-// AddToProtocolFee adds the amount to the tokenListWithAmount
-// Only `pool + router + staker` can execute this function.
-func AddToProtocolFee(cur realm, tokenPath string, amount uint64) {
-	assertOnlyPoolRouterStaker()
-	protocolFeeState.TokenListWithAmount[tokenPath] += amount
+// SetGovStakerPct sets the stakerPct.
+//
+// Parameters:
+//   - pct: percentage for gov/staker (0-10000, where 10000 = 100%)
+//
+// Only callable by admin or governance.
+// Note: DevOps percentage is automatically adjusted to (10000 - govStakerPct).
+func SetGovStakerPct(cur realm, pct int64) {
+	halt.AssertIsNotHaltedProtocolFee()
+
+	caller := std.PreviousRealm().Address()
+	access.AssertIsAdminOrGovernance(caller)
+
+	assertIsValidPercent(pct)
+
+	prevDevOpsPct := protocolFeeState.DevOpsPct()
+	prevGovStakerPct := protocolFeeState.GovStakerPct()
+
+	newGovStakerPct, err := protocolFeeState.setGovStakerPct(pct)
+	if err != nil {
+		panic(err)
+	}
+	newDevOpsPct := protocolFeeState.DevOpsPct()
+
+	previousRealm := std.PreviousRealm()
+	std.Emit(
+		"SetGovStakerPct",
+		"prevAddr", previousRealm.Address().String(),
+		"prevRealm", previousRealm.PkgPath(),
+		"newDevOpsPct", strconv.FormatInt(newDevOpsPct, 10),
+		"prevDevOpsPct", strconv.FormatInt(prevDevOpsPct, 10),
+		"newGovStakerPct", strconv.FormatInt(newGovStakerPct, 10),
+		"prevGovStakerPct", strconv.FormatInt(prevGovStakerPct, 10),
+	)
+}
+
+// AddToProtocolFee adds the amount to the tokenListWithAmount.
+//
+// Parameters:
+//   - tokenPath: token contract path
+//   - amount: fee amount to add
+//
+// Only callable by pool, router or staker contracts.
+// Note: Accumulated fees are distributed when DistributeProtocolFee is called.
+func AddToProtocolFee(cur realm, tokenPath string, amount int64) {
+	halt.AssertIsNotHaltedProtocolFee()
+
+	caller := std.PreviousRealm().Address()
+	assertIsPoolOrRouterOrStaker(caller)
+
+	if amount < 0 {
+		panic(makeErrorWithDetail(
+			errInvalidAmount,
+			ufmt.Sprintf("amount(%d) should not be negative", amount),
+		))
+	}
+
+	currentAmount := protocolFeeState.tokenListWithAmount[tokenPath]
+
+	// Check for overflow
+	if amount > 0 && currentAmount > 0 && currentAmount > (9223372036854775807-amount) {
+		panic(makeErrorWithDetail(
+			errInvalidAmount,
+			ufmt.Sprintf("overflow detected: current(%d) + amount(%d) would exceed int64 max", currentAmount, amount),
+		))
+	}
+
+	protocolFeeState.tokenListWithAmount[tokenPath] += amount
 }
 
 // ClearTokenListWithAmount clears the tokenListWithAmount.
-// only `gov/staker` can execute this function.
+//
+// Resets all accumulated token amounts to zero.
+// Only callable by gov/staker contract.
+// Note: Should be called after successful distribution.
 func ClearTokenListWithAmount(cur realm) {
-	assertOnlyGovStaker()
+	halt.AssertIsNotHaltedProtocolFee()
+
+	caller := std.PreviousRealm().Address()
+	access.AssertIsGovStaker(caller)
+
 	protocolFeeState.clearTokenListWithAmount()
 }
 
 // ClearAccuTransferToGovStaker clears the accuToGovStaker.
-// Only gov/staker can execute this function.
-// protocol_fee just sends the accumulated amount to gov/staker
-// which means gov/staker doesn't known how much protocol_fee has been distributed from last time
-// Therefore, gov/staker calls GetAccuTransferToGovStaker to get the accumulated amount and clear it
+//
+// Resets accumulated transfer tracking for gov/staker.
+// This allows gov/staker to track distributions between calls.
+//
+// Only callable by gov/staker contract.
+// Note: Should be called after reading accumulated amounts.
 func ClearAccuTransferToGovStaker(cur realm) {
-	assertOnlyNotHalted()
-	caller := std.PreviousRealm().Address()
-	if err := common.GovStakerOnly(caller); err != nil {
-		panic(err)
-	}
+	halt.AssertIsNotHaltedProtocolFee()
 
-	protocolFeeState.AccuToGovStaker = avl.NewTree()
+	caller := std.PreviousRealm().Address()
+	access.AssertIsGovStaker(caller)
+
+	protocolFeeState.accuToGovStaker = avl.NewTree()
 }
 
-func makeEventString(tokenPath string, amount uint64) string {
-	return tokenPath + "*FEE*" + strconv.FormatUint(amount, 10)
+func makeEventString(tokenPath string, amount int64) string {
+	return tokenPath + "*FEE*" + strconv.FormatInt(amount, 10)
 }
