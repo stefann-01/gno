@@ -3,10 +3,15 @@ include ../gnoswap-tests/_info.mk
 include ../gnoswap-tests/test.mk
 
 # Complete flow that includes both GNS-WUGNOT and BAR-WUGNOT operations
-full-workflow: pool-create-gns-wugnot-default mint-gns-gnot enable-irm enable-lltv market-create-gns-wugnot supply-assets-gns-wugnot supply-collateral-gns-wugnot borrow-gns \
+full-workflow: pool-create-gns-wugnot-default mint-gns-gnot enable-irm enable-lltv market-create-gns-wugnot set-fee-gns-wugnot supply-assets-gns-wugnot supply-collateral-gns-wugnot borrow-gns \
 	pool-create-bar-wugnot-default mint-bar-wugnot market-create-bar-wugnot supply-assets-bar-wugnot supply-collateral-bar-wugnot borrow-bar \
 	check-position-gns-wugnot check-position-bar-wugnot
 	@echo "************ WORKFLOW FINISHED ************"
+
+set-fee-gns-wugnot:
+	$(info ************ Testing Set Fee ************)
+	@echo "" | gnokey maketx run gnoswap_admin set_fee.gno -gas-wanted 200000000 -gas-fee 1000000ugnot -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID)
+	@echo
 
 # Enable the linear IRM
 enable-irm:
