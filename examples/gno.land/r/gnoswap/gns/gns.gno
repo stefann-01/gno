@@ -37,10 +37,6 @@ func init() {
 	privateLedger.Mint(owner.Owner(), INITIAL_MINT_AMOUNT)
 	grc20reg.Register(cross, token, "")
 
-	// Print owner info and GNS balance
-	println("GNS Owner:", owner.Owner().String())
-	println("GNS Owner Balance:", token.BalanceOf(owner.Owner()))
-
 	// Initial amount set to 900_000_000_000_000 (MAXIMUM_SUPPLY - INITIAL_MINT_AMOUNT).
 	// leftEmissionAmount will decrease as tokens are minted.
 	setLeftEmissionAmount(MAX_EMISSION_AMOUNT)
