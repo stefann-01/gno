@@ -44,3 +44,4 @@ wal/
 !/tm2/pkg/bft/wal/
 
 # GnoSwap and Volos specific
+volos-tests/_info.mk
