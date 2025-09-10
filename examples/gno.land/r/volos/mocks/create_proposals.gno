@@ -13,7 +13,7 @@ import (
 // callback function that will be executed if the proposal passes
 // This sets the fee to 15% (0.15 * 1e18 = 150000000000000000)
 func setFeeCallback() {
-	core.SetFee(cross, "gno.land/r/demo/wugnot:gno.land/r/gnoswap/v1/gns:3000:0", u256.NewUint(150000000000000000))
+	core.SetFee(cross, "gno.land/r/demo/wugnot:gno.land/r/gnoswap/v1/gns:3000:0", 5)
 }
 
 func CreateProposals(cur realm) {
