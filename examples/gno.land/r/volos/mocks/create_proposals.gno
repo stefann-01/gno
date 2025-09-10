@@ -7,7 +7,6 @@ import (
 	"gno.land/r/volos/gov/vls"
 	"gno.land/r/volos/gov/staker"
 	"gno.land/r/volos/core"
-	u256 "gno.land/p/gnoswap/uint256"
 )
 
 // callback function that will be executed if the proposal passes
