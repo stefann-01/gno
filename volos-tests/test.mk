@@ -8,11 +8,6 @@ full-workflow: pool-create-gns-wugnot-default mint-gns-gnot enable-irm enable-ll
 	check-position-gns-wugnot check-position-bar-wugnot
 	@echo "************ WORKFLOW FINISHED ************"
 
-set-fee-gns-wugnot:
-	$(info ************ Testing Set Fee ************)
-	@echo "" | gnokey maketx run gnoswap_admin set_fee.gno -gas-wanted 200000000 -gas-fee 1000000ugnot -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID)
-	@echo
-
 # Enable the linear IRM
 enable-irm:
 	$(info ************ Enable linear IRM ************)
@@ -29,6 +24,11 @@ enable-lltv:
 market-create-gns-wugnot:
 	$(info ************ Test creating market with GNS (supply/borrow) and WUGNOT (collateral) ************)
 	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/core -func CreateMarket -args "gno.land/r/demo/wugnot:gno.land/r/gnoswap/v1/gns:3000" -args false -args "linear" -args 75 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" gnoswap_admin
+	@echo
+
+set-fee-gns-wugnot:
+	$(info ************ Testing Set Fee to 30% ************)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/core -func SetFee -args "gno.land/r/demo/wugnot:gno.land/r/gnoswap/v1/gns:3000:0" -args 30 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" gnoswap_admin
 	@echo
 
 # Test market creation with GNS and WUGNOT
