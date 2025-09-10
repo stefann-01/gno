@@ -3,48 +3,25 @@ package staker
 import (
 	"std"
 	"strconv"
+	"strings"
 
-	"gno.land/p/demo/grc/grc721"
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/demo/tokens/grc721"
+	"gno.land/p/nt/ufmt"
+	prbac "gno.land/p/gnoswap/rbac"
+	u256 "gno.land/p/gnoswap/uint256"
 
-	"gno.land/r/gnoswap/v1/common"
-
-	"gno.land/r/gnoswap/v1/halt"
+	"gno.land/r/gnoswap/access"
+	"gno.land/r/gnoswap/rbac"
 )
 
 // GetOrigPkgAddr returns the original package address.
-// In staker contract, original package address is the staker address.
 func GetOrigPkgAddr() std.Address {
 	return stakerAddr
 }
 
-// poolPathAlign ensures that a pool path is formatted with tokens in lexicographical order.
-//
-// This function takes a pool path string and splits it into three components:
-// - Token0 address
-// - Token1 address
-// - Fee tier
-// It ensures that the tokens are ordered lexicographically (Token0 < Token1) and reconstructs
-// the pool path in the correct order.
-//
-// Parameters:
-// - poolPath (string): The input pool path string in the format "Token0:Token1:Fee".
-//
-// Returns:
-// - string: A lexicographically ordered pool path string.
-//
-// Panics:
-// - If the input `poolPath` is invalid or cannot be split into exactly three parts.
+// poolPathAlign ensures pool path tokens are in lexicographical order.
 func poolPathAlign(poolPath string) string {
-	res, err := common.Split(poolPath, ":", 3)
-	if err != nil {
-		panic(addDetailToError(
-			errInvalidPoolPath,
-			ufmt.Sprintf("invalid poolPath(%s)", poolPath),
-		))
-	}
-
-	pToken0, pToken1, fee := res[0], res[1], res[2]
+	pToken0, pToken1, fee := poolPathDivide(poolPath)
 
 	if pToken0 < pToken1 {
 		return ufmt.Sprintf("%s:%s:%s", pToken0, pToken1, fee)
@@ -53,27 +30,10 @@ func poolPathAlign(poolPath string) string {
 	return ufmt.Sprintf("%s:%s:%s", pToken1, pToken0, fee)
 }
 
-// poolPathDivide splits a pool path string into its components.
-//
-// The function takes a pool path string in the format "Token0:Token1:Fee",
-// splits it using the `:` separator, and returns the three components:
-// - `pToken0`: The first token address.
-// - `pToken1`: The second token address.
-// - `fee`: The fee tier.
-//
-// Parameters:
-// - poolPath (string): The input pool path string.
-//
-// Returns:
-// - string: `pToken0` - The first token address.
-// - string: `pToken1` - The second token address.
-// - string: `fee` - The fee tier.
-//
-// Panics:
-// - If the `poolPath` cannot be split into exactly three components.
+// poolPathDivide splits a pool path into token addresses and fee tier.
 func poolPathDivide(poolPath string) (string, string, string) {
-	res, err := common.Split(poolPath, ":", 3)
-	if err != nil {
+	res := strings.Split(poolPath, ":")
+	if len(res) != 3 {
 		panic(errInvalidPoolPath)
 	}
 
@@ -81,16 +41,10 @@ func poolPathDivide(poolPath string) (string, string, string) {
 	return pToken0, pToken1, fee
 }
 
-// positionIdFrom converts uint64 to grc721.TokenID.
-//
-// Input:
-//   - id: the uint64 to convert
-//
-// Output:
-//   - grc721.TokenID: the converted token ID
+// positionIdFrom converts various types to grc721.TokenID.
 func positionIdFrom(positionId any) grc721.TokenID {
 	if positionId == nil {
-		panic(addDetailToError(
+		panic(makeErrorWithDetails(
 			errDataNotFound,
 			"positionId is nil",
 		))
@@ -106,14 +60,14 @@ func positionIdFrom(positionId any) grc721.TokenID {
 	case grc721.TokenID:
 		return positionId.(grc721.TokenID)
 	default:
-		panic(addDetailToError(
+		panic(makeErrorWithDetails(
 			errInvalidInput,
 			ufmt.Sprintf("unsupported positionId type(%T)", positionId),
 		))
 	}
 }
 
-// max returns the larger of x or y.
+// max returns the larger of two int64 values.
 func max(x, y int64) int64 {
 	if x > y {
 		return x
@@ -121,7 +75,7 @@ func max(x, y int64) int64 {
 	return y
 }
 
-// min returns the smaller of x or y.
+// min returns the smaller of two uint64 values.
 func min(x, y uint64) uint64 {
 	if x < y {
 		return x
@@ -129,10 +83,10 @@ func min(x, y uint64) uint64 {
 	return y
 }
 
-// contains checks if a string is present in a slice of strings.
+// contains checks if a string exists in a slice.
 func contains(slice []string, item string) bool {
-	// we can use strings.EqualFold here, but this function should be case-sensitive.
-	// so, it is better to compare strings directly.
+	// We can use strings.EqualFold here, but this function should be case-sensitive.
+	// So, it is better to compare strings directly.
 	for _, element := range slice {
 		if element == item {
 			return true
@@ -141,52 +95,7 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-// derivePkgAddr derives the Realm address from it's pkgpath parameter
-func derivePkgAddr(pkgPath string) std.Address {
-	return std.DerivePkgAddr(pkgPath)
-}
-
-// getPrevRealm returns object of the previous realm.
-func getPrevRealm() std.Realm {
-	return std.PreviousRealm()
-}
-
-// getPrevAddr returns the address of the previous realm.
-func getPrevAddr() std.Address {
-	return std.PreviousRealm().Address()
-}
-
-// getPrevPkgPath returns the package path of the previous realm.
-func getPrevPkgPath() string {
-	return std.PreviousRealm().PkgPath()
-}
-
-// getPrev returns the address and package path of the previous realm.
-func getPrev() (string, string) {
-	prev := getPrevRealm()
-	return prev.Address().String(), prev.PkgPath()
-}
-
-// isUserCall returns true if the caller is a user.
-func isUserCall() bool {
-	return std.PreviousRealm().IsUser()
-}
-
-// assertOnlyNotHalted panics if the contract is halted.
-func assertOnlyNotHalted() {
-	currentLevel := halt.GetCurrentHaltLevel()
-	if currentLevel != halt.LvMainnetSafeMode {
-		// Check if withdrawals are specifically halted, not just if the system is halted
-		if err := halt.IsHalted(halt.OpTypeWithdraw); err != nil {
-			panic(err.Error())
-		}
-
-		if halt.IsContractHalted(halt.OpTypeStaker) {
-			panic("staker contract operations are currently disabled")
-		}
-	}
-}
-
+// formatUint formats an unsigned integer to string.
 func formatUint(v any) string {
 	switch v := v.(type) {
 	case uint8:
@@ -200,6 +109,7 @@ func formatUint(v any) string {
 	}
 }
 
+// formatAnyInt formats a signed integer to string.
 func formatAnyInt(v any) string {
 	switch v := v.(type) {
 	case int32:
@@ -213,6 +123,46 @@ func formatAnyInt(v any) string {
 	}
 }
 
+// formatBool formats a boolean to string.
 func formatBool(v bool) string {
 	return strconv.FormatBool(v)
+}
+
+// getRoleAddress retrieves the address for a system role.
+func getRoleAddress(role prbac.SystemRole) std.Address {
+	addr, exists := access.GetAddress(role.String())
+	if !exists {
+		return rbac.DefaultRoleAddresses[role]
+	}
+
+	return addr
+}
+
+// safeConvertToInt64 safely converts a *u256.Uint value to an int64, ensuring no overflow.
+//
+// This function attempts to convert the given *u256.Uint value to an int64. If the value exceeds
+// the maximum allowable range for int64 (`2^63 - 1`), it triggers a panic with a descriptive error message.
+//
+// Parameters:
+// - value (*u256.Uint): The unsigned 256-bit integer to be converted.
+//
+// Returns:
+// - int64: The converted value if it falls within the int64 range.
+//
+// Panics:
+//   - If the `value` exceeds the range of int64, the function will panic with an error indicating
+//     the overflow and the original value.
+func safeConvertToInt64(value *u256.Uint) int64 {
+	const INT64_MAX = 9223372036854775807
+	const MAX_INT64 = "9223372036854775807"
+
+	res, overflow := value.Uint64WithOverflow()
+	if overflow || res > uint64(INT64_MAX) {
+		panic(ufmt.Sprintf(
+			"amount(%s) overflows int64 range (max %s)",
+			value.ToString(),
+			MAX_INT64,
+		))
+	}
+	return int64(res)
 }

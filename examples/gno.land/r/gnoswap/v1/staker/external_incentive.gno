@@ -2,101 +2,69 @@ package staker
 
 import (
 	"std"
-	"strconv"
 	"time"
 
-	"gno.land/p/demo/ufmt"
-	"gno.land/p/gnoswap/consts"
+	"gno.land/p/nt/ufmt"
+	prbac "gno.land/p/gnoswap/rbac"
 
+	"gno.land/r/gnoswap/access"
+	en "gno.land/r/gnoswap/emission"
+	"gno.land/r/gnoswap/gns"
+	"gno.land/r/gnoswap/halt"
 	"gno.land/r/gnoswap/v1/common"
-	en "gno.land/r/gnoswap/v1/emission"
-	"gno.land/r/gnoswap/v1/gns"
-	pl "gno.land/r/gnoswap/v1/pool"
 )
 
-// CreateExternalIncentive creates an incentive program for a pool.
-// ref: https://docs.gnoswap.io/contracts/staker/staker.gno#createexternalincentive
-func CreateExternalIncentive(cur realm,
+// CreateExternalIncentive creates an external incentive program for a pool.
+//
+// Parameters:
+//   - targetPoolPath: pool to incentivize
+//   - rewardToken: reward token path
+//   - rewardAmount: total reward amount
+//   - startTimestamp, endTimestamp: incentive period
+//
+// Only callable by users.
+func CreateExternalIncentive(
+	cur realm,
 	targetPoolPath string,
 	rewardToken string, // token path should be registered
 	rewardAmount int64,
 	startTimestamp int64,
 	endTimestamp int64,
 ) {
-	assertOnlyNotHalted()
-	if common.GetLimitCaller() {
-		prev := std.PreviousRealm()
-		if err := common.UserOnly(prev); err != nil {
-			panic(ufmt.Sprintf("%v: %v", errNoPermission, err))
-		}
-	}
+	halt.AssertIsNotHaltedStaker()
 
-	// panic if pool does not exist
-	if !pl.DoesPoolPathExist(targetPoolPath) {
-		panic(addDetailToError(
-			errDataNotFound,
-			ufmt.Sprintf("targetPoolPath(%s) does not exist", targetPoolPath),
-		))
-	}
+	caller := std.PreviousRealm().Address()
+	access.AssertIsUser(std.PreviousRealm())
 
-	// Check if reward amount meets the minimum requirement for the specific token
-	minReward := GetMinimumRewardAmountForToken(rewardToken)
-	if rewardAmount < int64(minReward) {
-		panic(addDetailToError(
-			errInvalidInput,
-			ufmt.Sprintf("rewardAmount(%d) is less than minimum required amount(%d)", rewardAmount, minReward),
-		))
-	}
+	assertIsPoolExists(targetPoolPath)
+	assertIsGreaterThanMinimumRewardAmount(rewardToken, rewardAmount)
+	assertIsAllowedForExternalReward(targetPoolPath, rewardToken)
+	assertIsValidIncentiveStartTime(startTimestamp)
+	assertIsValidIncentiveEndTime(endTimestamp)
+	assertIsValidIncentiveDuration(endTimestamp - startTimestamp)
 
 	en.MintAndDistributeGns(cross)
 
-	// check token can be used as reward
-	if err := isAllowedForExternalReward(targetPoolPath, rewardToken); err != nil {
-		panic(err.Error())
-	}
-
-	// native ugnot check
-	if rewardToken == consts.GNOT {
-		sent := std.OriginSend()
-		ugnotSent := sent.AmountOf("ugnot")
-
-		if ugnotSent != rewardAmount {
-			panic(addDetailToError(
-				errInvalidInput,
-				ufmt.Sprintf("user(%s) sent ugnot(%d) amount not equal to rewardAmount(%d)", getPrevAddr(), ugnotSent, rewardAmount),
-			))
+	// transfer reward token from user to staker
+	if rewardToken == GNOT {
+		rewardToken = WUGNOT_PATH
+		err := wrapWithTransfer(stakerAddr, rewardAmount)
+		if err != nil {
+			panic(err)
 		}
-
-		wrap(ugnotSent)
-
-		rewardToken = consts.WUGNOT_PATH
+	} else {
+		err := common.TransferFrom(cross, rewardToken, caller, stakerAddr, rewardAmount)
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	// must be in seconds format, not milliseconds
-	// must be at least +1 day midnight
-	// must be midnight of the day
-	if err := checkStartTime(startTimestamp); err != nil {
-		panic(err.Error())
-	}
+	// deposit gns amount
+	gns.TransferFrom(cross, caller, stakerAddr, depositGnsAmount)
 
-	// endTimestamp cannot be later than 253402300799 (9999-12-31 23:59:59)
-	if endTimestamp >= MAX_UNIX_EPOCH_TIME {
-		panic(addDetailToError(
-			errInvalidIncentiveEndTime,
-			ufmt.Sprintf("endTimestamp(%d) cannot be later than 253402300799 (9999-12-31 23:59:59)", endTimestamp),
-		))
-	}
-
-	caller := getPrevAddr()
-
-	// incentiveId := incentiveIdCompute(std.PrevRealm().Address(), targetPoolPath, rewardToken, startTimestamp, endTimestamp, std.GetHeight())
-	incentiveId := incentiveIdByTime(startTimestamp, endTimestamp, caller, rewardToken, targetPoolPath)
-
-	externalDuration := uint64(endTimestamp - startTimestamp)
-	if err := isValidIncentiveDuration(externalDuration); err != nil {
-		panic(err)
-	}
-
+	currentTime := time.Now().Unix()
+	currentHeight := std.ChainHeight()
+	incentiveId := nextIncentiveID(caller, currentTime)
 	pool := pools.GetOrCreate(targetPoolPath)
 
 	incentive := NewExternalIncentive(
@@ -104,17 +72,16 @@ func CreateExternalIncentive(cur realm,
 		targetPoolPath,
 		rewardToken,
 		rewardAmount,
-		int64(startTimestamp),
-		int64(endTimestamp),
+		startTimestamp,
+		endTimestamp,
 		caller,
-		std.ChainHeight(),
+		currentHeight,
 		depositGnsAmount,
-		time.Now().Unix(),
-		gns.GetAvgBlockTimeInMs(),
+		currentTime,
 	)
 
 	if externalIncentives.Has(incentiveId) {
-		panic(addDetailToError(
+		panic(makeErrorWithDetails(
 			errIncentiveAlreadyExists,
 			ufmt.Sprintf("incentiveId(%s)", incentiveId),
 		))
@@ -122,19 +89,13 @@ func CreateExternalIncentive(cur realm,
 	// store external incentive information for each incentiveId
 	externalIncentives.set(incentiveId, incentive)
 
-	// deposit gns amount
-	gns.TransferFrom(cross, caller, stakerAddr, depositGnsAmount)
-
-	// transfer reward token from user to staker
-	common.TransferFrom(cross, rewardToken, caller, stakerAddr, rewardAmount)
-
 	pool.incentives.create(caller, incentive)
 
-	prevAddr, prevPkgPath := getPrev()
+	previousRealm := std.PreviousRealm()
 	std.Emit(
 		"CreateExternalIncentive",
-		"prevAddr", prevAddr,
-		"prevRealm", prevPkgPath,
+		"prevAddr", previousRealm.Address().String(),
+		"prevRealm", previousRealm.PkgPath(),
 		"incentiveId", incentiveId,
 		"targetPoolPath", targetPoolPath,
 		"rewardToken", rewardToken,
@@ -142,58 +103,48 @@ func CreateExternalIncentive(cur realm,
 		"startTimestamp", formatInt(startTimestamp),
 		"endTimestamp", formatInt(endTimestamp),
 		"depositGnsAmount", formatInt(depositGnsAmount),
-		"currentHeight", formatInt(std.ChainHeight()),
-		"currentTime", formatInt(time.Now().Unix()),
-		"avgBlockTimeInMs", formatInt(gns.GetAvgBlockTimeInMs()),
+		"currentHeight", formatInt(currentHeight),
+		"currentTime", formatInt(currentTime),
 	)
 }
 
-// EndExternalIncentive ends the external incentive and refunds the remaining reward
-// ref: https://docs.gnoswap.io/contracts/staker/staker.gno#endexternalincentive
-func EndExternalIncentive(cur realm, refundee std.Address, targetPoolPath, rewardToken string, startTimestamp, endTimestamp, height int64) {
-	assertOnlyNotHalted()
+// EndExternalIncentive ends an external incentive and refunds remaining rewards.
+//
+// Finalizes incentive program after end timestamp.
+// Returns unallocated rewards and GNS deposit.
+// Calculates unclaimable rewards for refund.
+//
+// Parameters:
+//   - targetPoolPath: Pool with the incentive
+//   - incentiveId: Unique incentive identifier
+//
+// Process:
+//  1. Validates incentive end time reached
+//  2. Calculates remaining and unclaimable rewards
+//  3. Refunds rewards to original creator
+//  4. Returns 100 GNS deposit
+//  5. Removes incentive from active list
+//
+// Only callable by Refundee or Admin.
+func EndExternalIncentive(cur realm, targetPoolPath, incentiveId string) {
+	halt.AssertIsNotHaltedStaker()
+	halt.AssertIsNotHaltedWithdraw()
+
+	assertIsPoolExists(targetPoolPath)
+
 	pool, exists := pools.Get(targetPoolPath)
 	if !exists {
-		panic(addDetailToError(
+		panic(makeErrorWithDetails(
 			errDataNotFound,
 			ufmt.Sprintf("targetPoolPath(%s) does not exist", targetPoolPath),
 		))
 	}
 
-	incentiveId := incentiveIdByTime(startTimestamp, endTimestamp, refundee, rewardToken, targetPoolPath)
-	readOnlyIncentive, exists := pool.incentives.Get(startTimestamp, endTimestamp, refundee, rewardToken)
-	incentive := readOnlyIncentive.Clone()
-	if !exists {
-		panic(addDetailToError(
-			errCannotEndIncentive,
-			ufmt.Sprintf("cannot end non existent incentive(%d:%d:%s:%s)", startTimestamp, endTimestamp, refundee, rewardToken),
-		))
-	}
-
-	currentHeight := std.ChainHeight()
-	if currentHeight < incentive.endHeight {
-		panic(addDetailToError(
-			errCannotEndIncentive,
-			ufmt.Sprintf("cannot end incentive before endHeight(%d), current(%d)", incentive.endHeight, currentHeight),
-		))
-	}
-
-	// when incentive end time is over
-	// admin or refundee can end incentive ( left amount will be refunded )
-	caller := getPrevAddr()
-	if caller != consts.ADMIN && caller != refundee {
-		panic(addDetailToError(
-			errNoPermission,
-			ufmt.Sprintf("only refundee(%s) or admin(%s) can end incentive, but called from %s", refundee, consts.ADMIN, caller),
-		))
-	}
-
-	// when incentive ended, refund remaining reward
-	refund := int64(incentive.rewardLeft)
-
-	if !incentive.unclaimableRefunded {
-		refund += int64(pool.incentives.calculateUnclaimableReward(incentive.incentiveId))
-		incentive.unclaimableRefunded = true
+	caller := std.PreviousRealm().Address()
+	currentTime := time.Now().Unix()
+	incentive, refund, err := endExternalIncentive(pool, incentiveId, caller, currentTime)
+	if err != nil {
+		panic(err)
 	}
 
 	poolLeftExternalRewardAmount := common.BalanceOf(incentive.rewardToken, stakerAddr)
@@ -201,103 +152,73 @@ func EndExternalIncentive(cur realm, refundee std.Address, targetPoolPath, rewar
 		refund = poolLeftExternalRewardAmount
 	}
 
-	common.Transfer(cross, incentive.rewardToken, incentive.refundee, refund)
-
 	// unwrap if wugnot
-	if incentive.rewardToken == consts.WUGNOT_PATH {
-		unwrap(refund)
+	isUnwrap := incentive.rewardToken == WUGNOT_PATH
+	if isUnwrap {
+		err = unwrapWithTransfer(incentive.refundee, refund)
+	} else {
+		err = common.Transfer(cross, incentive.rewardToken, incentive.refundee, refund)
+	}
+
+	if err != nil {
+		panic(err)
 	}
 
 	// also refund deposit gns amount
-	gns.Transfer(cross, incentive.refundee, int64(incentive.depositGnsAmount))
+	gns.Transfer(cross, incentive.refundee, incentive.depositGnsAmount)
 
 	pool.incentives.update(incentive.refundee, incentive)
 
-	prevAddr, prevPkgPath := getPrev()
+	previousRealm := std.PreviousRealm()
 	std.Emit(
 		"EndExternalIncentive",
-		"prevAddr", prevAddr,
-		"prevRealm", prevPkgPath,
+		"prevAddr", previousRealm.Address().String(),
+		"prevRealm", previousRealm.PkgPath(),
 		"incentiveId", incentiveId,
 		"targetPoolPath", targetPoolPath,
-		"refundee", refundee.String(),
-		"refundToken", rewardToken,
+		"refundee", incentive.refundee.String(),
+		"refundToken", incentive.rewardToken,
 		"refundAmount", formatInt(refund),
 		"refundGnsAmount", formatInt(incentive.depositGnsAmount),
-		"isRequestUnwrap", formatBool(incentive.rewardToken == consts.WUGNOT_PATH),
-		"externalIncentiveEndBy", prevAddr,
+		"isRequestUnwrap", formatBool(incentive.rewardToken == WUGNOT_PATH),
+		"externalIncentiveEndBy", previousRealm.Address().String(),
 	)
 }
 
-func isValidIncentiveDuration(dur uint64) error {
-	switch dur {
-	case TIMESTAMP_90DAYS, TIMESTAMP_180DAYS, TIMESTAMP_365DAYS:
-		return nil
-	}
-
-	return ufmt.Errorf(
-		"%v: externalDuration(%d) must be 90, 180, 365 days",
-		errInvalidIncentiveDuration, dur,
-	)
-}
-
-// checkStartTime checks whether the current time meets the conditions for generating an
-// external rewards. Since the earliest time this reward can be generated is from
-// midnight of the next day, it uses a timestamp to verify this timing.
-func checkStartTime(startTimestamp int64) error {
-	// must be in seconds format, not milliseconds
-	// REF: https://stackoverflow.com/a/23982005
-	numStr := strconv.Itoa(int(startTimestamp))
-	if len(numStr) >= 13 {
-		return ufmt.Errorf(
-			"%v: startTimestamp(%d) must be in seconds format, not milliseconds",
-			errInvalidIncentiveStartTime, startTimestamp,
+// endExternalIncentive processes the end of an external incentive program.
+func endExternalIncentive(pool *Pool, incentiveId string, caller std.Address, currentTime int64) (*ExternalIncentive, int64, error) {
+	incentive, exists := pool.incentives.Get(incentiveId)
+	if !exists {
+		return nil, 0, makeErrorWithDetails(
+			errCannotEndIncentive,
+			ufmt.Sprintf("cannot end non existent incentive(%s)", incentiveId),
 		)
 	}
 
-	// must be at least +1 day midnight
-	tomorrowMidnight := time.Now().AddDate(0, 0, 1).Truncate(24 * time.Hour).Unix()
-	if startTimestamp < tomorrowMidnight {
-		return ufmt.Errorf(
-			"%v: startTimestamp(%d) must be at least +1 day midnight(%d)",
-			errInvalidIncentiveStartTime, startTimestamp, tomorrowMidnight,
+	if currentTime < incentive.endTimestamp {
+		return nil, 0, makeErrorWithDetails(
+			errCannotEndIncentive,
+			ufmt.Sprintf("cannot end incentive before endTime(%d), current(%d)", incentive.endTimestamp, currentTime),
 		)
 	}
 
-	// must be midnight of the day
-	startTime := time.Unix(startTimestamp, 0)
-	if !isMidnight(startTime) {
-		return ufmt.Errorf(
-			"%v: startTime(%d = %s) must be midnight of the day",
-			errInvalidIncentiveStartTime, startTimestamp, startTime.String(),
+	// only refundee or admin can end incentive
+	if !access.IsAuthorized(prbac.ROLE_ADMIN.String(), caller) && caller != incentive.refundee {
+		return nil, 0, makeErrorWithDetails(
+			errNoPermission,
+			ufmt.Sprintf(
+				"only refundee(%s) or admin(%s) can end incentive, but called from %s",
+				incentive.refundee, adminAddr.String(), caller,
+			),
 		)
 	}
 
-	return nil
-}
+	refund := int64(incentive.rewardLeft)
 
-func isMidnight(startTime time.Time) bool {
-	hour := startTime.Hour()
-	minute := startTime.Minute()
-	second := startTime.Second()
-
-	return hour == 0 && minute == 0 && second == 0
-}
-
-func isAllowedForExternalReward(poolPath, tokenPath string) error {
-	token0, token1, _ := poolPathDivide(poolPath)
-
-	if tokenPath == token0 || tokenPath == token1 {
-		return nil
+	if !incentive.unclaimableRefunded {
+		refund += int64(pool.incentives.calculateUnclaimableReward(incentive.incentiveId))
+		incentive.setUnClaimableRefunded(true)
 	}
 
-	allowed := contains(allowedTokens, tokenPath)
-	if allowed {
-		return nil
-	}
-
-	return ufmt.Errorf(
-		"%v: tokenPath(%s) is not allowed for external reward for poolPath(%s)",
-		errNotAllowedForExternalReward, tokenPath, poolPath,
-	)
+	return incentive, refund, nil
 }

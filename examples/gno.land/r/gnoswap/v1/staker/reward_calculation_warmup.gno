@@ -3,82 +3,85 @@ package staker
 import (
 	"math"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 	u256 "gno.land/p/gnoswap/uint256"
-
-	gns "gno.land/r/gnoswap/v1/gns"
 )
 
 type Warmup struct {
-	Index            int
-	BlockDuration    int64
-	NextWarmupHeight int64 // set to 0 for template
-	WarmupRatio      uint64
+	Index          int
+	TimeDuration   int64
+	NextWarmupTime int64 // time when this warmup period ends
+	WarmupRatio    uint64
 }
 
+// warmupTemplate defines the warmup periods for staking rewards.
+// These parameters can be modified through governance via SetWarmUp.
 var warmupTemplate []Warmup = DefaultWarmupTemplate()
 
 func DefaultWarmupTemplate() []Warmup {
-	msInDay := int64(86400000)
-	blocksInDay := msInDay / int64(gns.GetAvgBlockTimeInMs())
-	blocksIn5Days := int64(5 * blocksInDay)
-	blocksIn10Days := int64(10 * blocksInDay)
-	blocksIn30Days := int64(30 * blocksInDay)
+	secondsInDay := int64(86400)
+	secondsIn5Days := int64(5 * secondsInDay)
+	secondsIn10Days := int64(10 * secondsInDay)
+	secondsIn30Days := int64(30 * secondsInDay)
 
-	// NextWarmupHeights are set to 0 for template.
-	// It will be set by InstantiateWarmup()
+	// NextWarmupTime is set to 0 for template.
+	// They will be set by InstantiateWarmup()
 	return []Warmup{
 		{
-			Index:         0,
-			BlockDuration: blocksIn5Days,
-			// NextWarmupHeight: currentHeight + blocksIn5Days,
+			Index:        0,
+			TimeDuration: secondsIn5Days,
+			// NextWarmupTime will be set based on currentTime
+			// NextWarmupTime: currentTime + secondsIn5Days,
 			WarmupRatio: 30,
 		},
 		{
-			Index:         1,
-			BlockDuration: blocksIn10Days,
-			// NextWarmupHeight: currentHeight + blocksIn10Days,
+			Index:        1,
+			TimeDuration: secondsIn10Days,
+			// NextWarmupTime will be set based on currentTime
+			// NextWarmupTime: currentTime + secondsIn10Days,
 			WarmupRatio: 50,
 		},
 		{
-			Index:         2,
-			BlockDuration: blocksIn30Days,
-			// NextWarmupHeight: currentHeight + blocksIn30Days,
+			Index:        2,
+			TimeDuration: secondsIn30Days,
+			// NextWarmupTime will be set based on currentTime
+			// NextWarmupTime: currentTime + secondsIn30Days,
 			WarmupRatio: 70,
 		},
 		{
-			Index:         3,
-			BlockDuration: math.MaxInt64,
-			// NextWarmupHeight: math.MaxInt64,
+			Index:        3,
+			TimeDuration: math.MaxInt64,
+			// NextWarmupTime will be set to math.MaxInt64
+			// NextWarmupTime: math.MaxInt64,
 			WarmupRatio: 100,
 		},
 	}
 }
 
 // expected to be called by governance
-func modifyWarmup(index int, blockDuration int64) {
+func modifyWarmup(index int, timeDuration int64) {
 	if index >= len(warmupTemplate) {
 		panic(ufmt.Sprintf("index(%d) is out of range", index))
 	}
 
-	warmupTemplate[index].BlockDuration = blockDuration
+	warmupTemplate[index].TimeDuration = timeDuration
 }
 
-func instantiateWarmup(currentHeight int64) []Warmup {
+func instantiateWarmup(currentTime int64) []Warmup {
 	warmups := make([]Warmup, 0)
 	for _, warmup := range warmupTemplate {
-		nextWarmupHeight := currentHeight + warmup.BlockDuration
-		if nextWarmupHeight < 0 {
-			nextWarmupHeight = math.MaxInt64
+		nextWarmupTime := currentTime + warmup.TimeDuration
+		if nextWarmupTime < 0 {
+			nextWarmupTime = math.MaxInt64
 		}
 
 		warmups = append(warmups, Warmup{
-			Index:            warmup.Index,
-			BlockDuration:    warmup.BlockDuration,
-			NextWarmupHeight: nextWarmupHeight,
-			WarmupRatio:      warmup.WarmupRatio,
+			Index:          warmup.Index,
+			TimeDuration:   warmup.TimeDuration,
+			NextWarmupTime: nextWarmupTime,
+			WarmupRatio:    warmup.WarmupRatio,
 		})
-		currentHeight += warmup.BlockDuration
+		currentTime += warmup.TimeDuration
 	}
 	return warmups
 }
@@ -87,22 +90,23 @@ func (warmup *Warmup) apply(poolReward int64, positionLiquidity, stakedLiquidity
 	if stakedLiquidity.IsZero() {
 		return 0, 0
 	}
-	
+
+	divisor := u256.NewUint(100)
 	poolRewardUint := u256.NewUintFromInt64(poolReward)
 	perPositionReward := u256.Zero().Mul(poolRewardUint, positionLiquidity)
 	perPositionReward = u256.Zero().Div(perPositionReward, stakedLiquidity)
 	rewardRatio := u256.NewUint(warmup.WarmupRatio)
 	penaltyRatio := u256.NewUint(100 - warmup.WarmupRatio)
 	totalReward := u256.Zero().Mul(perPositionReward, rewardRatio)
-	totalReward = u256.Zero().Div(totalReward, u256.NewUint(100))
+	totalReward = u256.Zero().Div(totalReward, divisor)
 	totalPenalty := u256.Zero().Mul(perPositionReward, penaltyRatio)
-	totalPenalty = u256.Zero().Div(totalPenalty, u256.NewUint(100))
-	return int64(totalReward.Uint64()), int64(totalPenalty.Uint64())
+	totalPenalty = u256.Zero().Div(totalPenalty, divisor)
+	return safeConvertToInt64(totalReward), safeConvertToInt64(totalPenalty)
 }
 
-func (self *Deposit) FindWarmup(currentHeight int64) int {
+func (self *Deposit) FindWarmup(currentTime int64) int {
 	for i, warmup := range self.warmups {
-		if currentHeight < warmup.NextWarmupHeight {
+		if currentTime < warmup.NextWarmupTime {
 			return i
 		}
 	}

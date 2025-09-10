@@ -3,33 +3,22 @@ package launchpad
 import (
 	"std"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/r/gnoswap/access"
+	"gno.land/r/gnoswap/halt"
 	gov_staker "gno.land/r/gnoswap/v1/gov/staker"
 )
 
-// CollectProtocolFee collects protocol fee from gov/staker
-// each project's recipient wallet will be rewarded
-// ref: https://docs.gnoswap.io/contracts/launchpad/launchpad_reward.gno#collectprotocolfee
+// CollectProtocolFee collects protocol fee from gov/staker for project recipient wallets.
+// Only users can call this function.
 func CollectProtocolFee(cur realm) {
-	callerAddress := std.PreviousRealm().Address()
-	hasProject := false
+	halt.AssertIsNotHaltedLaunchpad()
+	halt.AssertIsNotHaltedWithdraw()
 
-	// check if the caller has a project,
-	// if owner, break the loop
-	projects.Iterate("", "", func(key string, value interface{}) bool {
-		project := value.(*Project)
-		hasProject = project.IsOwner(callerAddress)
+	previousRealm := std.PreviousRealm()
+	access.AssertIsUser(previousRealm)
 
-		// if true, break the loop
-		return hasProject
-	})
+	caller := previousRealm.Address()
+	assertHasProject(caller)
 
-	if !hasProject {
-		panic(makeErrorWithDetails(
-			errInvalidOwner,
-			ufmt.Sprintf("caller %s is not the owner of any project", callerAddress.String()),
-		))
-	}
-
-	gov_staker.CollectRewardFromLaunchPad(cross, callerAddress)
+	gov_staker.CollectRewardFromLaunchPad(cross, caller)
 }

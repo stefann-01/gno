@@ -3,7 +3,7 @@ package uint256
 import (
 	"testing"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 )
 
 func TestFullMathMulDiv(t *testing.T) {
@@ -290,7 +290,6 @@ func TestMulDivBoundary(t *testing.T) {
 
 // This test verifies that the MulDiv function does not modify its input parameters
 func TestMulDivInputPreservation(t *testing.T) {
-
 	tests := []struct {
 		name  string
 		x     string

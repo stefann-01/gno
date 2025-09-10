@@ -1,7 +1,7 @@
 package staker
 
 import (
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 
 	i256 "gno.land/p/gnoswap/int256"
 	u256 "gno.land/p/gnoswap/uint256"
@@ -29,7 +29,7 @@ import (
 // - The function ensures correctness by validating the results of the arithmetic operations.
 func liquidityMathAddDelta(x *u256.Uint, y *i256.Int) *u256.Uint {
 	if x == nil || y == nil {
-		panic(addDetailToError(
+		panic(makeErrorWithDetails(
 			errInvalidInput,
 			"x or y is nil",
 		))
@@ -40,17 +40,17 @@ func liquidityMathAddDelta(x *u256.Uint, y *i256.Int) *u256.Uint {
 	// Subtract or add based on the sign of y
 	if y.Lt(i256.Zero()) {
 		absDelta := y.Abs()
-		z = new(u256.Uint).Sub(x, absDelta)
+		z = u256.Zero().Sub(x, absDelta)
 		if z.Gte(x) {
-			panic(addDetailToError(
+			panic(makeErrorWithDetails(
 				errCalculationError,
 				ufmt.Sprintf("Condition failed: (z must be < x) (x: %s, y: %s, z:%s)", x.ToString(), y.ToString(), z.ToString()),
 			))
 		}
 	} else {
-		z = new(u256.Uint).Add(x, y.Abs())
+		z = u256.Zero().Add(x, y.Abs())
 		if z.Lt(x) {
-			panic(addDetailToError(
+			panic(makeErrorWithDetails(
 				errCalculationError,
 				ufmt.Sprintf("Condition failed: (z must be >= x) (x: %s, y: %s, z:%s)", x.ToString(), y.ToString(), z.ToString()),
 			))

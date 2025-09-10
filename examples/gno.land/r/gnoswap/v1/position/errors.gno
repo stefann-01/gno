@@ -3,7 +3,7 @@ package position
 import (
 	"errors"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 )
 
 var (
@@ -25,17 +25,16 @@ var (
 	errInvalidTokenPath      = errors.New("[GNOSWAP-POSITION-016] invalid token address")
 	errInvalidLiquidityRatio = errors.New("[GNOSWAP-POSITION-017] invalid liquidity ratio")
 	errUnderflow             = errors.New("[GNOSWAP-POSITION-018] underflow")
+	errOverflow              = errors.New("[GNOSWAP-POSITION-019] overflow")
 	errInvalidLiquidity      = errors.New("[GNOSWAP-POSITION-019] invalid liquidity")
 )
 
 // newErrorWithDetail appends additional context or details to an existing error message.
-//
-// Parameters:
-//   - err: The original error (error).
-//   - detail: Additional context or detail to append to the error message (string).
-//
-// Returns:
-//   - string: The combined error message in the format "<original_error> || <detail>".
 func newErrorWithDetail(err error, detail string) string {
 	return ufmt.Errorf("%s || %s", err.Error(), detail).Error()
+}
+
+// makeErrorWithDetails creates an error with additional context.
+func makeErrorWithDetails(err error, details string) error {
+	return ufmt.Errorf("%s || %s", err.Error(), details)
 }

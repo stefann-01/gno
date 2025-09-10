@@ -3,63 +3,80 @@ package staker
 import (
 	"std"
 
-	"gno.land/r/demo/wugnot"
+	"gno.land/r/gnoland/wugnot"
 
-	"gno.land/p/demo/ufmt"
-	"gno.land/p/gnoswap/consts"
+	"gno.land/p/nt/ufmt"
 )
 
-// wrap converts `ugnot` tokens into `wugnot` tokens.
-//
-// Parameters:
-// - ugnotAmount (uint64): The amount of `ugnot` to wrap.
-//
-// Panics:
-// - If `ugnotAmount` is less than or equal to 0.
-// - If `ugnotAmount` is less than the minimum deposit required (`consts.UGNOT_MIN_DEPOSIT_TO_WRAP`).
-func wrap(ugnotAmount int64) {
-	if ugnotAmount <= 0 {
-		panic(addDetailToError(
-			errWrapUnwrap,
-			"cannot wrap 0 ugnot",
-		))
+// wrapWithTransfer wraps GNOT into WUGNOT and transfers it to the specified address.
+func wrapWithTransfer(toAddress std.Address, amount int64) error {
+	if amount <= 0 {
+		return nil
 	}
 
-	if ugnotAmount < int64(consts.UGNOT_MIN_DEPOSIT_TO_WRAP) {
-		panic(addDetailToError(
+	if amount < UGNOT_MIN_DEPOSIT_TO_WRAP {
+		return makeErrorWithDetails(
 			errWugnotMinimum,
-			ufmt.Sprintf("amount(%d) < minimum(%d)", ugnotAmount, consts.UGNOT_MIN_DEPOSIT_TO_WRAP),
-		))
+			ufmt.Sprintf("amount(%d) < minimum(%d)", amount, UGNOT_MIN_DEPOSIT_TO_WRAP),
+		)
 	}
 
-	// WRAP IT
-	banker := std.NewBanker(std.BankerTypeRealmSend)
-	banker.SendCoins(stakerAddr, consts.WUGNOT_ADDR, std.Coins{{Denom: "ugnot", Amount: ugnotAmount}})
-	wugnot.Deposit(cross) // STAKER HAS WUGNOT
+	// transfer ugnot from fromAddress to current realm
+	currentRealmAddr := std.CurrentRealm().Address()
 
-	// SEND WUGNOT: STAKER -> USER
-	wugnot.Transfer(cross, std.PreviousRealm().Address(), ugnotAmount)
+	sentCoins := std.OriginSend()
+	ugnotSent := sentCoins.AmountOf(GNOT_DENOM)
+	if ugnotSent != amount {
+		return makeErrorWithDetails(
+			errInvalidInput,
+			ufmt.Sprintf("user(%s) sent ugnot(%d) amount not equal to rewardAmount(%d)", toAddress.String(), ugnotSent, amount),
+		)
+	}
+
+	// wrap gnot to wugnot
+	wugnotAddr := std.DerivePkgAddr(WUGNOT_PATH)
+	banker := std.NewBanker(std.BankerTypeRealmSend)
+	banker.SendCoins(currentRealmAddr, wugnotAddr, sentCoins)
+	wugnot.Deposit(cross)
+
+	// if to address is not current realm, transfer wugnot to to address
+	if toAddress != currentRealmAddr {
+		wugnot.Transfer(cross, toAddress, amount)
+	}
+
+	return nil
 }
 
-// unwrap converts `wugnot` tokens back into `ugnot` tokens.
-//
-// Parameters:
-// - wugnotAmount (uint64): The amount of `wugnot` to unwrap.
-//
-// Note:
-// - If `wugnotAmount` is 0, the function simply returns without executing further steps.
-func unwrap(wugnotAmount int64) {
+// unwrapWithTransfer unwraps WUGNOT to GNOT and sends it to the specified address.
+func unwrapWithTransfer(toAddress std.Address, wugnotAmount int64) error {
 	if wugnotAmount == 0 {
-		return
+		return nil
 	}
 
-	// SEND WUGNOT: USER -> STAKER
-	wugnot.TransferFrom(cross, std.PreviousRealm().Address(), stakerAddr, wugnotAmount)
-
-	// UNWRAP IT
 	wugnot.Withdraw(cross, wugnotAmount)
 
-	// SEND GNOT: STAKER -> USER
+	currentRealmAddr := std.CurrentRealm().Address()
 	banker := std.NewBanker(std.BankerTypeRealmSend)
-	banker.SendCoins(stakerAddr, std.PreviousRealm().Address(), std.Coins{{Denom: "ugnot", Amount: wugnotAmount}})
+	banker.SendCoins(currentRealmAddr, toAddress, std.Coins{{"ugnot", int64(wugnotAmount)}})
+
+	return nil
+}
+
+// unwrapWithTransferFrom transfers WUGNOT from a source address, unwraps it to GNOT, and sends it to the target.
+func unwrapWithTransferFrom(fromAddress, toAddress std.Address, wugnotAmount int64) error {
+	if wugnotAmount == 0 {
+		return nil
+	}
+
+	currentRealmAddr := std.CurrentRealm().Address()
+	if fromAddress != currentRealmAddr {
+		wugnot.TransferFrom(cross, fromAddress, currentRealmAddr, wugnotAmount)
+	}
+
+	wugnot.Withdraw(cross, wugnotAmount)
+
+	banker := std.NewBanker(std.BankerTypeRealmSend)
+	banker.SendCoins(currentRealmAddr, toAddress, std.Coins{{"ugnot", int64(wugnotAmount)}})
+
+	return nil
 }

@@ -3,11 +3,10 @@ package pool
 import (
 	"errors"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 )
 
-// Error Messages
-// These error messages are intended to inform you when an error occurs while using Contract and what it is.
+// Error definitions for pool operations
 var (
 	errNoPermission              = errors.New("[GNOSWAP-POOL-001] caller has no permission")
 	errUnsupportedFeeTier        = errors.New("[GNOSWAP-POOL-002] unsupported fee tier")
@@ -36,15 +35,16 @@ var (
 	errUnderflow                 = errors.New("[GNOSWAP-POOL-025] underflow")
 	errOverFlow                  = errors.New("[GNOSWAP-POOL-026] overflow")
 	errBalanceUpdateFailed       = errors.New("[GNOSWAP-POOL-027] balance update failed")
+	errInvalidPayer              = errors.New("[GNOSWAP-POOL-028] invalid payer")
 )
 
-// newErrorWithDetail adds detail to an error message
-//
-// input
-// err: error - the error message that is one of above list
-// detail: string - the detail to add to the error message
-// Returns: string - the final error message
+// newErrorWithDetail adds detail to an error message.
 func newErrorWithDetail(err error, detail string) string {
 	finalErr := ufmt.Errorf("%s || %s", err.Error(), detail)
 	return finalErr.Error()
+}
+
+// makeErrorWithDetails creates an error with additional context.
+func makeErrorWithDetails(err error, details string) error {
+	return ufmt.Errorf("%s || %s", err.Error(), details)
 }

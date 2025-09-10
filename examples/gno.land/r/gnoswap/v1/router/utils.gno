@@ -2,18 +2,14 @@ package router
 
 import (
 	"bytes"
-	"std"
 	"strconv"
 	"strings"
 	"time"
 
-	"gno.land/p/demo/ufmt"
-	"gno.land/r/gnoswap/v1/common"
-	"gno.land/r/gnoswap/v1/emission"
+	"gno.land/p/nt/ufmt"
 
 	i256 "gno.land/p/gnoswap/int256"
 	u256 "gno.land/p/gnoswap/uint256"
-	"gno.land/r/gnoswap/v1/halt"
 )
 
 var (
@@ -21,7 +17,7 @@ var (
 	errTxExpired    = "transaction too old, now(%d) > deadline(%d)"
 )
 
-// assertHopsInRange panics if the number of hops is not in the range 1~3.
+// assertHopsInRange ensures the number of hops is within the valid range of 1-3.
 func assertHopsInRange(hops int) {
 	switch hops {
 	case 1, 2, 3:
@@ -31,10 +27,18 @@ func assertHopsInRange(hops int) {
 	}
 }
 
-// getDataForSinglePath extracts token0, token1, and fee from a single path.
+// assertIsNotPassedDeadline ensures the transaction deadline has not expired.
+func assertIsNotPassedDeadline(deadline int64) {
+	if err := checkDeadline(deadline); err != nil {
+		errMsg := addDetailToError(errExpired, err.Error())
+		panic(errMsg)
+	}
+}
+
+// getDataForSinglePath extracts token addresses and fee from a single pool path.
 func getDataForSinglePath(poolPath string) (token0, token1 string, fee uint32) {
-	poolPathSplit, err := common.Split(poolPath, ":", 3)
-	if err != nil {
+	poolPathSplit := strings.Split(poolPath, ":")
+	if len(poolPathSplit) != 3 {
 		panic(addDetailToError(
 			errInvalidPoolPath,
 			ufmt.Sprintf("len(poolPathSplit) != 3, poolPath: %s", poolPath),
@@ -49,7 +53,7 @@ func getDataForSinglePath(poolPath string) (token0, token1 string, fee uint32) {
 	return poolPathSplit[0], poolPathSplit[1], uint32(f)
 }
 
-// getDataForMultiPath extracts token0, token1, and fee from a multi path.
+// getDataForMultiPath extracts token addresses and fee from a multi-hop path at specified index.
 func getDataForMultiPath(possiblePath string, poolIdx int) (token0, token1 string, fee uint32) {
 	pools := strings.Split(possiblePath, POOL_SEPARATOR)
 
@@ -65,6 +69,7 @@ func getDataForMultiPath(possiblePath string, poolIdx int) (token0, token1 strin
 	}
 }
 
+// i256MinMax returns the absolute values of x and y in min-max order.
 func i256MinMax(x, y *i256.Int) (min, max *u256.Uint) {
 	if x.Lt(y) || x.Eq(y) {
 		return x.Abs(), y.Abs()
@@ -72,55 +77,7 @@ func i256MinMax(x, y *i256.Int) (min, max *u256.Uint) {
 	return y.Abs(), x.Abs()
 }
 
-// getPrevAddr returns the address of the previous realm.
-func getPrevAddr() std.Address {
-	return std.PreviousRealm().Address()
-}
-
-// getPrev returns the address and package path of the previous realm.
-func getPrev() (string, string) {
-	prev := std.PreviousRealm()
-	return prev.Address().String(), prev.PkgPath()
-}
-
-// haltCheck performs security validations before any swap operation
-func haltCheck() error {
-	currentLevel := halt.GetCurrentHaltLevel()
-
-	if currentLevel != halt.LvMainnetSafeMode {
-		// check for withdraw operation halt
-		if err := halt.IsHalted(halt.OpTypeWithdraw); err != nil {
-			return err
-		}
-
-		// check for router contract halt
-		if halt.IsContractHalted(halt.OpTypeRouter) {
-			return ufmt.Errorf(errRouterHalted)
-		}
-	}
-
-	return nil
-}
-
-// commonSwapSetup performs all necessary validations and setup for a swap operation
-func commonSwapSetup() error {
-	if err := haltCheck(); err != nil {
-		return err
-	}
-
-	if common.GetLimitCaller() && std.PreviousRealm().PkgPath() != "" {
-		return ufmt.Errorf("%v: only user can call this function", errNoPermission)
-	}
-
-	emission.MintAndDistributeGns(cross)
-	return nil
-}
-
-// checkDeadline checks if the deadline is expired.
-// If the deadline is expired, it panics.
-// The deadline is expired if the current time is greater than the deadline.
-// Input:
-//   - deadline: the deadline to check
+// checkDeadline verifies that the transaction deadline has not passed.
 func checkDeadline(deadline int64) error {
 	now := time.Now().Unix()
 	if now <= deadline {
@@ -131,37 +88,8 @@ func checkDeadline(deadline int64) error {
 }
 
 // splitSingleChar splits a string by a single character separator.
-//
-// This function is optimized for splitting strings with a single-byte separator.
-// Unlike `strings.Split`, it:
-// 1. Performs direct byte comparison instead of substring matching
-// 2. Avoids additional string allocations by using slicing
-// 3. Makes only one allocation for the result slice
-//
-// The main differences from `strings.Split` are:
-// - Only works with single-byte separators
-// - More memory efficient as it doesn't need to handle multi-byte separators
-// - Faster for small to medium strings due to simpler byte comparison
-//
-// Performance:
-//   - Up to 5x faster than `strings.Split` for small strings (in Go)
-//   - For gno (run test with `-print-runtime-metrics` option):
-//     |     Function     |     Cycles       | Allocations
-//     |------------------|------------------|--------------|
-//     | strings.Split    |      1.1M        | 808.1K       |
-//     | splitSingleChar  |      1.0M        | 730.4K       |
-//   - Uses zero allocations except for the initial result slice
-//   - Most effective for strings under 1KB with simple single-byte delimiters
-//     (* This test result was measured without the `uassert` package)
-//
-// Parameters:
-//
-//	s (string): source string to split
-//	sep (byte): single byte separator to split on
-//
-// Returns:
-//
-//	[]string: slice containing the split string parts
+// This function is optimized for splitting strings with a single-byte separator
+// and is more memory efficient than strings.Split for this use case.
 func splitSingleChar(s string, sep byte) []string {
 	if s == "" {
 		return []string{""}
@@ -179,6 +107,7 @@ func splitSingleChar(s string, sep byte) []string {
 	return result
 }
 
+// formatUint formats an unsigned integer to string.
 func formatUint(v any) string {
 	switch v := v.(type) {
 	case uint8:
@@ -192,6 +121,7 @@ func formatUint(v any) string {
 	}
 }
 
+// formatInt64 formats a signed integer to string.
 func formatInt64(v any) string {
 	switch v := v.(type) {
 	case int8:
@@ -205,4 +135,33 @@ func formatInt64(v any) string {
 	default:
 		panic(ufmt.Sprintf("invalid type %T", v))
 	}
+}
+
+// safeConvertToInt64 safely converts a *u256.Uint value to an int64, ensuring no overflow.
+//
+// This function attempts to convert the given *u256.Uint value to an int64. If the value exceeds
+// the maximum allowable range for int64 (`2^63 - 1`), it triggers a panic with a descriptive error message.
+//
+// Parameters:
+// - value (*u256.Uint): The unsigned 256-bit integer to be converted.
+//
+// Returns:
+// - int64: The converted value if it falls within the int64 range.
+//
+// Panics:
+//   - If the `value` exceeds the range of int64, the function will panic with an error indicating
+//     the overflow and the original value.
+func safeConvertToInt64(value *u256.Uint) int64 {
+	const INT64_MAX = 9223372036854775807
+	const MAX_INT64 = "9223372036854775807"
+
+	res, overflow := value.Uint64WithOverflow()
+	if overflow || res > uint64(INT64_MAX) {
+		panic(ufmt.Sprintf(
+			"amount(%s) overflows int64 range (max %s)",
+			value.ToString(),
+			MAX_INT64,
+		))
+	}
+	return int64(res)
 }

@@ -3,7 +3,7 @@ package router
 import (
 	"errors"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 )
 
 var (
@@ -21,9 +21,17 @@ var (
 	errQuoteParser            = errors.New("[GNOSWAP-ROUTER-012] quote parse failed")
 	errHopsOutOfRange         = errors.New("[GNOSWAP-ROUTER-013] number of hops must be 1~3")
 	errSameTokenSwap          = errors.New("[GNOSWAP-ROUTER-014] cannot swap same token")
+	errProtocolFeeOverflow    = errors.New("[GNOSWAP-ROUTER-015] protocol fee calculation overflow")
+	errOverFlow               = errors.New("[GNOSWAP-ROUTER-016] overflow")
 )
 
+// addDetailToError adds detail to an error message.
 func addDetailToError(err error, detail string) string {
 	finalErr := ufmt.Errorf("%s || %s", err.Error(), detail)
 	return finalErr.Error()
+}
+
+// makeErrorWithDetails creates an error with additional context.
+func makeErrorWithDetails(err error, detail string) error {
+	return ufmt.Errorf("%s || %s", err.Error(), detail)
 }

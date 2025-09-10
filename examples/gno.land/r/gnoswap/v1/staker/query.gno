@@ -2,8 +2,9 @@ package staker
 
 import (
 	"std"
+	"time"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 	u256 "gno.land/p/gnoswap/uint256"
 )
 
@@ -40,16 +41,16 @@ func QueryPoolData(poolPath string) (*PoolData, error) {
 		return nil, ufmt.Errorf("pool %s not found", poolPath)
 	}
 
-	currentHeight := std.ChainHeight()
+	currentTimestamp := time.Now().Unix()
 	tier := poolTier.CurrentTier(poolPath)
 
-	ictvIds := filterActiveIncentives(pool, currentHeight)
+	ictvIds := filterActiveIncentives(pool, currentTimestamp)
 
 	return &PoolData{
 		PoolPath:         poolPath,
 		Tier:             tier,
 		ActiveIncentives: ictvIds,
-		StakedLiquidity:  pool.CurrentStakedLiquidity(std.ChainHeight()),
+		StakedLiquidity:  pool.CurrentStakedLiquidity(currentTimestamp),
 	}, nil
 }
 
@@ -61,7 +62,7 @@ func QueryIncentiveData(incentiveId string) (*IncentiveData, error) {
 	pools.tree.Iterate("", "", func(key string, value any) bool {
 		pool := value.(*Pool)
 
-		pool.incentives.byTime.Iterate("", "", func(key string, value any) bool {
+		pool.incentives.incentives.Iterate("", "", func(key string, value any) bool {
 			if key == incentiveId {
 				ictv := value.(*ExternalIncentive)
 				data = IncentiveData{
@@ -91,7 +92,7 @@ func QueryIncentiveData(incentiveId string) (*IncentiveData, error) {
 
 // QueryDepositData returns detailed information about a specific deposit
 func QueryDepositData(lpTokenId uint64) (*DepositData, error) {
-	deposit := deposits.Get(lpTokenId)
+	deposit := deposits.get(lpTokenId)
 	if deposit == nil {
 		return nil, ufmt.Errorf("positionId(%d) deposit does not exist", lpTokenId)
 	}
@@ -106,21 +107,21 @@ func QueryDepositData(lpTokenId uint64) (*DepositData, error) {
 	}, nil
 }
 
-func filterActiveIncentives(pool *Pool, currentHeight int64) []string {
+func filterActiveIncentives(pool *Pool, currentTimestamp int64) []string {
 	ictvIds := make([]string, 0)
-	pool.incentives.byHeight.Iterate("", "", func(key string, value any) bool {
-		ictv := value.(*ExternalIncentive)
-		if ictv.startHeight <= currentHeight && currentHeight < ictv.endHeight {
-			ictvId := incentiveIdByTime(
-				ictv.startHeight,
-				ictv.endHeight,
-				ictv.refundee,
-				ictv.rewardToken,
-				pool.poolPath,
-			)
-			ictvIds = append(ictvIds, ictvId)
+
+	pool.incentives.incentives.Iterate("", "", func(key string, value any) bool {
+		ictv, ok := value.(*ExternalIncentive)
+		if !ok {
+			return false
 		}
+
+		if ictv.startTimestamp <= currentTimestamp && currentTimestamp < ictv.endTimestamp {
+			ictvIds = append(ictvIds, ictv.incentiveId)
+		}
+
 		return false
 	})
+
 	return ictvIds
 }

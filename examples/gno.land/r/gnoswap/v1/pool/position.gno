@@ -2,10 +2,8 @@ package pool
 
 import (
 	"encoding/base64"
-	"std"
 
-	"gno.land/p/demo/ufmt"
-	"gno.land/p/gnoswap/consts"
+	"gno.land/p/nt/ufmt"
 	plp "gno.land/p/gnoswap/gnsmath"
 	i256 "gno.land/p/gnoswap/int256"
 	u256 "gno.land/p/gnoswap/uint256"
@@ -13,75 +11,58 @@ import (
 	"gno.land/r/gnoswap/v1/common"
 )
 
-var Q128 = u256.MustFromDecimal(consts.Q128)
+const positionPackagePath = "gno.land/r/gnoswap/v1/position"
 
-// getPositionKey generates a unique, encoded key for a liquidity position.
+var convertedQ128 = u256.MustFromDecimal(Q128)
+
+// getPositionKey generates a unique base64-encoded key for a liquidity position.
 //
-// This function creates a unique key for identifying a liquidity position in a pool. The key is based
-// on the position's owner address, lower tick, and upper tick values. The generated key is then encoded
-// as a base64 string to ensure compatibility and uniqueness.
+// Creates deterministic identifier for position tracking.
+// Ensures unique positions per owner and price range.
+// Used internally for position state management.
 //
 // Parameters:
-//   - owner: std.Address, the address of the position's owner.
-//   - tickLower: int32, the lower tick boundary for the position.
-//   - tickUpper: int32, the upper tick boundary for the position.
+//   - tickLower: Lower boundary tick of position range
+//   - tickUpper: Upper boundary tick of position range
 //
-// Returns:
-//   - string: A base64-encoded string representing the unique position key.
+// Key Format:
 //
-// Workflow:
-//  1. Validates that the `owner` address is valid using `assertOnlyValidAddress`.
-//  2. Ensures `tickLower` is less than `tickUpper` using `assertTickLowerLessThanUpper`.
-//  3. Constructs the position key as a formatted string:
-//     "<owner>__<tickLower>__<tickUpper>"
-//  4. Encodes the generated position key into a base64 string for safety and uniqueness.
-//  5. Returns the encoded position key.
+//	base64(position_package_path + tickLower_bytes + tickUpper_bytes)
 //
-// Example:
+// Requirements:
+//   - tickLower < tickUpper
+//   - Both ticks within valid range [-887272, 887272]
 //
-// ```gno
-//
-//	owner := std.Address("0x123456789")
-//	positionKey := getPositionKey(owner, 100, 200)
-//	println("Position Key:", positionKey)
-//
-//	// Output: base64-encoded string representing "0x123456789__100__200"
-//
-// ```
-//
-// Notes:
-//   - The base64 encoding ensures that the position key can be safely used as an identifier
-//     across different systems or data stores.
-//   - The function will panic if:
-//   - The `owner` address is invalid.
-//   - `tickLower` is greater than or equal to `tickUpper`.
+// Returns base64-encoded position key or error.
+// Combines position package path, tickLower, and tickUpper.
 func getPositionKey(
-	owner std.Address,
 	tickLower int32,
 	tickUpper int32,
-) string {
-	assertOnlyValidAddress(owner)
-	assertTickLowerLessThanUpper(tickLower, tickUpper)
+) (string, error) {
+	if err := validateTicks(tickLower, tickUpper); err != nil {
+		return "", err
+	}
 
-	positionKey := ufmt.Sprintf("%s__%d__%d", owner.String(), tickLower, tickUpper)
+	positionKey := ufmt.Sprintf("%s__%d__%d", positionPackagePath, tickLower, tickUpper)
 	encodedPositionKey := base64.StdEncoding.EncodeToString([]byte(positionKey))
-	return encodedPositionKey
+	return encodedPositionKey, nil
 }
 
-// positionUpdate calculates and returns an updated PositionInfo.
+// positionUpdate updates a position's liquidity and calculates fees owed.
+// Returns the updated position information and any error.
 func positionUpdate(
 	position PositionInfo,
 	liquidityDelta *i256.Int,
 	feeGrowthInside0X128 *u256.Uint,
 	feeGrowthInside1X128 *u256.Uint,
-) PositionInfo {
+) (PositionInfo, error) {
 	position.valueOrZero()
 
 	if position.liquidity.IsZero() && liquidityDelta.IsZero() {
-		panic(newErrorWithDetail(
+		return PositionInfo{}, makeErrorWithDetails(
 			errZeroLiquidity,
 			"both liquidityDelta and current position's liquidity are zero",
-		))
+		)
 	}
 
 	// check negative liquidity
@@ -90,11 +71,11 @@ func positionUpdate(
 		absDelta := i256.Zero().Set(liquidityDelta).Abs()
 		currentLiquidity := position.liquidity
 		if absDelta.Gt(currentLiquidity) {
-			panic(newErrorWithDetail(
+			return PositionInfo{}, makeErrorWithDetails(
 				errZeroLiquidity,
 				ufmt.Sprintf("liquidity delta(%s) is greater than current liquidity(%s)",
 					liquidityDelta.ToString(), position.liquidity.ToString()),
-			))
+			)
 		}
 	}
 
@@ -106,21 +87,21 @@ func positionUpdate(
 	}
 
 	// validate negative feeGrowth before calculation
-	diff0 := new(u256.Uint).Sub(feeGrowthInside0X128, position.feeGrowthInside0LastX128)
-	diff1 := new(u256.Uint).Sub(feeGrowthInside1X128, position.feeGrowthInside1LastX128)
+	diff0 := u256.Zero().Sub(feeGrowthInside0X128, position.feeGrowthInside0LastX128)
+	diff1 := u256.Zero().Sub(feeGrowthInside1X128, position.feeGrowthInside1LastX128)
 
 	// calculate tokensOwed
 	tokensOwed0 := u256.Zero()
 	if !diff0.IsZero() {
-		tokensOwed0 = u256.MulDiv(diff0, position.liquidity, Q128)
+		tokensOwed0 = u256.MulDiv(diff0, position.liquidity, convertedQ128)
 	}
 
 	tokensOwed1 := u256.Zero()
 	if !diff1.IsZero() {
-		tokensOwed1 = u256.MulDiv(diff1, position.liquidity, Q128)
+		tokensOwed1 = u256.MulDiv(diff1, position.liquidity, convertedQ128)
 	}
 
-	if !(liquidityDelta.IsZero()) {
+	if !liquidityDelta.IsZero() {
 		position.liquidity = liquidityNext
 	}
 
@@ -128,22 +109,31 @@ func positionUpdate(
 	position.feeGrowthInside1LastX128 = feeGrowthInside1X128
 
 	// add tokensOwed only when it's greater than 0
-	if tokensOwed0.Gt(u256.Zero()) || tokensOwed1.Gt(u256.Zero()) {
-		position.tokensOwed0 = position.tokensOwed0.Add(position.tokensOwed0, tokensOwed0)
-		position.tokensOwed1 = position.tokensOwed1.Add(position.tokensOwed1, tokensOwed1)
+	if tokensOwed0.Gt(zero) || tokensOwed1.Gt(zero) {
+		owed0, overflow := u256.Zero().AddOverflow(position.tokensOwed0, tokensOwed0)
+		if overflow {
+			return PositionInfo{}, errOverFlow
+		}
+		owed1, overflow := u256.Zero().AddOverflow(position.tokensOwed1, tokensOwed1)
+		if overflow {
+			return PositionInfo{}, errOverFlow
+		}
+
+		position.tokensOwed0 = owed0
+		position.tokensOwed1 = owed1
 	}
 
-	return position
+	return position, nil
 }
 
+// calculateToken0Amount calculates the amount of token0 based on price range and liquidity delta.
 func calculateToken0Amount(sqrtPriceLower, sqrtPriceUpper *u256.Uint, liquidityDelta *i256.Int) *i256.Int {
-	res := plp.GetAmount0DeltaStr(sqrtPriceLower, sqrtPriceUpper, liquidityDelta)
-	return i256.MustFromDecimal(res)
+	return plp.GetAmount0Delta(sqrtPriceLower, sqrtPriceUpper, liquidityDelta)
 }
 
+// calculateToken1Amount calculates the amount of token1 based on price range and liquidity delta.
 func calculateToken1Amount(sqrtPriceLower, sqrtPriceUpper *u256.Uint, liquidityDelta *i256.Int) *i256.Int {
-	res := plp.GetAmount1DeltaStr(sqrtPriceLower, sqrtPriceUpper, liquidityDelta)
-	return i256.MustFromDecimal(res)
+	return plp.GetAmount1Delta(sqrtPriceLower, sqrtPriceUpper, liquidityDelta)
 }
 
 // PositionLiquidity returns the liquidity of a position.
@@ -180,27 +170,34 @@ func (p *Pool) GetPosition(key string) (PositionInfo, bool) {
 		return newPosition, false
 	}
 
-	return iPositionInfo.(PositionInfo), true
+	positionInfo, ok := iPositionInfo.(PositionInfo)
+	if !ok {
+		panic(ufmt.Sprintf("failed to cast iPositionInfo to PositionInfo: %T", iPositionInfo))
+	}
+	return positionInfo, true
 }
 
 // positionUpdateWithKey updates a position in the pool and returns the updated position.
 func (p *Pool) positionUpdateWithKey(
 	positionKey string,
 	liquidityDelta *i256.Int,
-	feeGrowthInside0X128 *u256.Uint,
-	feeGrowthInside1X128 *u256.Uint,
-) PositionInfo {
+	feeGrowthInside0X128, feeGrowthInside1X128 *u256.Uint,
+) (PositionInfo, error) {
 	// if pointer is nil, set to zero for calculation
 	liquidityDelta = liquidityDelta.NilToZero()
 	feeGrowthInside0X128 = feeGrowthInside0X128.NilToZero()
 	feeGrowthInside1X128 = feeGrowthInside1X128.NilToZero()
 
+	// if position does not exist, create a new position
 	positionToUpdate, _ := p.GetPosition(positionKey)
-	positionAfterUpdate := positionUpdate(positionToUpdate, liquidityDelta, feeGrowthInside0X128, feeGrowthInside1X128)
+	positionAfterUpdate, err := positionUpdate(positionToUpdate, liquidityDelta, feeGrowthInside0X128, feeGrowthInside1X128)
+	if err != nil {
+		return PositionInfo{}, err
+	}
 
 	p.setPosition(positionKey, positionAfterUpdate)
 
-	return positionAfterUpdate
+	return positionAfterUpdate, nil
 }
 
 // setPosition sets the position info for a given key.
@@ -236,13 +233,19 @@ func (p *Pool) mustGetPosition(positionKey string) PositionInfo {
 //   - PositionInfo: updated position information
 //   - *u256.Uint: amount of token0 needed/returned
 //   - *u256.Uint: amount of token1 needed/returned
-func (p *Pool) modifyPosition(params ModifyPositionParams) (PositionInfo, *u256.Uint, *u256.Uint) {
-	checkTicks(params.tickLower, params.tickUpper)
+func (p *Pool) modifyPosition(params ModifyPositionParams) (PositionInfo, *u256.Uint, *u256.Uint, error) {
+	if err := validateTicks(params.tickLower, params.tickUpper); err != nil {
+		return PositionInfo{}, zero, zero, err
+	}
 
 	// get current state and price bounds
 	tick := p.Slot0Tick()
 	// update position state
-	position := p.updatePosition(params, tick)
+	position, err := p.updatePosition(params, tick)
+	if err != nil {
+		return PositionInfo{}, zero, zero, err
+	}
+
 	liqDelta := params.liquidityDelta
 
 	amount0, amount1 := i256.Zero(), i256.Zero()
@@ -280,7 +283,7 @@ func (p *Pool) modifyPosition(params ModifyPositionParams) (PositionInfo, *u256.
 		amount1 = calculateToken1Amount(sqrtRatioLower, sqrtRatioUpper, liqDelta)
 	}
 
-	return position, amount0.Abs(), amount1.Abs()
+	return position, amount0.Abs(), amount1.Abs(), nil
 }
 
 // updatePosition modifies the position's liquidity and updates the corresponding tick states.
@@ -321,12 +324,13 @@ func (p *Pool) modifyPosition(params ModifyPositionParams) (PositionInfo, *u256.
 //	println("Updated Position Info:", updatedPosition)
 //
 // ```
-func (p *Pool) updatePosition(positionParams ModifyPositionParams, tick int32) PositionInfo {
+func (p *Pool) updatePosition(positionParams ModifyPositionParams, tick int32) (PositionInfo, error) {
 	feeGrowthGlobal0X128 := p.FeeGrowthGlobal0X128().Clone()
 	feeGrowthGlobal1X128 := p.FeeGrowthGlobal1X128().Clone()
 
 	var flippedLower, flippedUpper bool
-	if !(positionParams.liquidityDelta.IsZero()) {
+
+	if !positionParams.liquidityDelta.IsZero() {
 		flippedLower = p.tickUpdate(
 			positionParams.tickLower,
 			tick,
@@ -364,13 +368,20 @@ func (p *Pool) updatePosition(positionParams ModifyPositionParams, tick int32) P
 		feeGrowthGlobal1X128,
 	)
 
-	positionKey := getPositionKey(positionParams.owner, positionParams.tickLower, positionParams.tickUpper)
-	position := p.positionUpdateWithKey(
+	positionKey, err := getPositionKey(positionParams.tickLower, positionParams.tickUpper)
+	if err != nil {
+		return PositionInfo{}, err
+	}
+
+	position, err := p.positionUpdateWithKey(
 		positionKey,
 		positionParams.liquidityDelta,
 		feeGrowthInside0X128.Clone(),
 		feeGrowthInside1X128.Clone(),
 	)
+	if err != nil {
+		return PositionInfo{}, err
+	}
 
 	// clear any tick data that is no longer needed
 	if positionParams.liquidityDelta.IsNeg() {
@@ -382,5 +393,5 @@ func (p *Pool) updatePosition(positionParams ModifyPositionParams, tick int32) P
 		}
 	}
 
-	return position
+	return position, nil
 }

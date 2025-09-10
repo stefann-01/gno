@@ -2,50 +2,41 @@ package launchpad
 
 import (
 	"std"
+	"time"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/r/gnoswap/access"
+	"gno.land/r/gnoswap/halt"
 )
 
 // CollectRewardByDepositId collects reward from a specific deposit.
-// This function ensures that only the deposit owner can collect rewards
-// and that the system is not halted.
 //
 // Parameters:
-// - depositID (string): The ID of the deposit to collect reward from.
+//   - depositID: ID of the deposit to collect from
 //
-// Returns:
-// - int64: The amount of reward collected.
-//
-// Panics:
-// - If the system is halted
-// - If the deposit is not found
-// - If the caller is not the owner
-// - If reward collection fails
+// Returns amount of reward collected.
+// Only callable by deposit owner.
 func CollectRewardByDepositId(cur realm, depositID string) int64 {
-	previousAddress := std.PreviousRealm().Address()
-	previousPkgPath := std.PreviousRealm().PkgPath()
+	halt.AssertIsNotHaltedLaunchpad()
+	halt.AssertIsNotHaltedWithdraw()
 
-	assertOnlyNotHalted()
+	previousRealm := std.PreviousRealm()
+	access.AssertIsUser(previousRealm)
 
-	deposit, err := getDeposit(depositID)
-	if err != nil {
-		panic(err.Error())
-	}
+	caller := previousRealm.Address()
+	assertIsDepositOwner(depositID, caller)
 
-	if !deposit.IsOwner(previousAddress) {
-		panic(makeErrorWithDetails(errInvalidOwner, ufmt.Sprintf("(%s)", previousAddress.String())).Error())
-	}
-
+	deposit := mustGetDeposit(depositID)
 	currentHeight := std.ChainHeight()
-	rewardAmount, err := collectDepositReward(deposit, currentHeight)
+	currentTime := time.Now().Unix()
+	rewardAmount, err := collectDepositReward(deposit, currentHeight, currentTime)
 	if err != nil {
-		panic(err.Error())
+		panic(err)
 	}
 
 	std.Emit(
 		"CollectRewardByDepositId",
-		"prevAddr", previousAddress.String(),
-		"prevRealm", previousPkgPath,
+		"prevAddr", previousRealm.Address().String(),
+		"prevRealm", previousRealm.PkgPath(),
 		"depositId", depositID,
 		"amount", formatInt(rewardAmount),
 	)
@@ -54,24 +45,9 @@ func CollectRewardByDepositId(cur realm, depositID string) int64 {
 }
 
 // collectDepositReward calculates and collects the reward for a deposit.
-// This function ensures accurate reward calculation by updating the reward state
-// before collection.
-//
-// Parameters:
-// - deposit (Deposit): The deposit to collect reward from
-// - currentHeight (int64): Current blockchain height
-//
-// Returns:
-// - int64: The amount of reward collected
-// - error: If the collection fails
-func collectDepositReward(deposit *Deposit, currentHeight int64) (int64, error) {
-	// Input validation
-	if deposit == nil {
-		return 0, makeErrorWithDetails(errNotExistDeposit, "deposit is nil")
-	}
-
-	if currentHeight <= 0 {
-		return 0, makeErrorWithDetails(errInvalidHeight, "currentHeight must be positive")
+func collectDepositReward(deposit *Deposit, currentHeight, currentTime int64) (int64, error) {
+	if currentTime <= 0 {
+		return 0, makeErrorWithDetails(errInvalidTime, "currentTime must be positive")
 	}
 
 	// Get project tier and reward manager
@@ -86,13 +62,13 @@ func collectDepositReward(deposit *Deposit, currentHeight int64) (int64, error) 
 	}
 
 	// Update reward state before collection
-	err = rewardManager.updateRewardPerDepositX128(projectTier.CurrentDepositAmount(), currentHeight)
+	err = rewardManager.updateRewardPerDepositX128(projectTier.CurrentDepositAmount(), currentHeight, currentTime)
 	if err != nil {
 		return 0, err
 	}
 
 	// Collect reward
-	rewardAmount, err := rewardManager.collectReward(deposit.ID(), currentHeight)
+	rewardAmount, err := rewardManager.collectReward(deposit.ID(), currentTime)
 	if err != nil {
 		return 0, err
 	}

@@ -3,7 +3,7 @@ package governance
 import (
 	"errors"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 )
 
 var (
@@ -28,9 +28,10 @@ var (
 	errAlreadyActiveProposal                          = errors.New("[GNOSWAP-GOVERNANCE-019] already active proposal")
 	errProposalNotFound                               = errors.New("[GNOSWAP-GOVERNANCE-020] proposal not found")
 	errProposalNotExecutable                          = errors.New("[GNOSWAP-GOVERNANCE-021] proposal not executable")
+	errNotProposer                                    = errors.New("[GNOSWAP-GOVERNANCE-022] not proposer")
 )
 
-func addDetailToError(err error, detail string) string {
-	finalErr := ufmt.Errorf("%s || %s", err.Error(), detail)
-	return finalErr.Error()
+// makeErrorWithDetails creates an error with additional context.
+func makeErrorWithDetails(err error, detail string) error {
+	return ufmt.Errorf("%s || %s", err.Error(), detail)
 }

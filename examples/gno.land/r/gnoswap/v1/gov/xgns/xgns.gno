@@ -4,66 +4,48 @@ import (
 	"std"
 	"strings"
 
-	"gno.land/p/demo/grc/grc20"
-	"gno.land/p/demo/ownable"
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/demo/tokens/grc20"
+	"gno.land/p/nt/ownable"
+	"gno.land/p/nt/ufmt"
 
-	"gno.land/r/gnoswap/v1/access"
+	"gno.land/r/gnoswap/access"
+	"gno.land/r/gnoswap/halt"
 
-	"gno.land/r/gnoswap/v1/halt"
+	prbac "gno.land/p/gnoswap/rbac"
 )
 
 var (
-	admin         = ownable.NewWithAddress(std.DerivePkgAddr(govStakerAddr.String()))
+	admin         = ownable.NewWithAddress(std.DerivePkgAddr(prbac.ROLE_GOV_STAKER.String()))
 	token, ledger = grc20.NewToken("XGNS", "xGNS", 6)
-
-	govStakerAddr = getContractAddress(access.ROLE_GOV_STAKER)
-	launchpadAddr = getContractAddress(access.ROLE_LAUNCHPAD)
 )
 
-func init() {}
-
+// TotalSupply returns the total supply of xGNS tokens.
 func TotalSupply() int64 {
 	return token.TotalSupply()
 }
 
-// VotingSupply calculates the total supply of tokens eligible for voting.
-//
-// This function determines the total voting supply by subtracting the amount
-// of tokens held by the launchpad contract from the total minted token supply.
-// Tokens held by the launchpad contract do not participate in voting.
-//
-// Returns:
-// - uint64: The total supply of tokens available for voting.
-//
-// Notes:
-// - `TotalSupply`: Represents the total amount of xGNS tokens minted.
-// - `BalanceOf(launchpadAddr)`: Retrieves the amount of xGNS tokens held by the launchpad contract.
+// VotingSupply returns total supply eligible for voting.
 func VotingSupply() int64 {
-	total := token.TotalSupply() // this is entire amount of xGNS minted
+	total := token.TotalSupply()
+	launchpad, ok := access.GetAddress(prbac.ROLE_LAUNCHPAD.String())
+	if !ok {
+		panic(ufmt.Sprintf("launchpad address not found"))
+	}
 
-	// this is amount of xGNS held by launchpad
-	// this xGNS doesn't participate in voting
-	launchpad := token.BalanceOf(launchpadAddr)
-	return total - launchpad
+	return total - token.BalanceOf(launchpad)
 }
 
-// BalanceOf retrieves the token balance of a specified address.
-//
-// This function resolves the provided address or name and queries the token balance
-// associated with the resolved address.
+// BalanceOf returns token balance for address.
 //
 // Parameters:
-// - owner: The address or name of the user whose balance is being queried.
+//   - owner: address to check balance for
 //
-// Returns:
-// - uint64: The current token balance of the specified address.
+// Returns balance amount.
 func BalanceOf(owner std.Address) int64 {
 	return token.BalanceOf(owner)
 }
 
-// xGNS is non-transferable
-// Therefore it doesn't have transfer and transferFrom functions
+// Render returns a formatted representation of the token state.
 func Render(path string) string {
 	parts := strings.Split(path, "/")
 	c := len(parts)
@@ -79,159 +61,66 @@ func Render(path string) string {
 	}
 }
 
-// Mint increases the balance of a specified address by a given amount.
-//
-// This function is restricted to be called only by specific authorized contracts:
-// - Governance staker contract
-//
-// If the caller is not one of these contracts, the function will panic with an error.
+// Mint mints tokens to address.
 //
 // Parameters:
-// - to: The address or name of the user whose balance will be increased.
-// - amount: The amount of tokens to be minted.
+//   - to: recipient address
+//   - amount: amount to mint
 //
-// Errors:
-// - Panics if the caller is unauthorized.
-// - Propagates any error from the ledger.Mint function.
+// Only callable by governance staker contract.
 func Mint(cur realm, to std.Address, amount int64) {
-	currentLevel := halt.GetCurrentHaltLevel()
-	if currentLevel != halt.LvMainnetSafeMode {
-		// Check if withdrawals are specifically halted, not just if the system is halted
-		if err := halt.IsHalted(halt.OpTypeWithdraw); err != nil {
-			panic(err.Error())
-		}
-
-		if halt.IsContractHalted(halt.OpTypeXGns) {
-			panic("xGNS contract operations are currently disabled")
-		}
-	}
-
-	// only (gov staker) or (launchpad) contract can call Mint
-	caller := std.PreviousRealm().Address()
-
-	if govStakerAddr == caller || launchpadAddr == caller {
-		checkErr(ledger.Mint(to, amount))
-	} else {
-		panic(addDetailToError(
-			errNoPermission,
-			ufmt.Sprintf("only gov/staker(%s) or launchpad(%s) contract can call Mint, called from %s", govStakerAddr.String(), launchpadAddr.String(), caller.String()),
-		))
-	}
-}
-
-// MintByLaunchPad increases the balance of a specified address by a given amount.
-//
-// This function is restricted to be called only by specific authorized contracts:
-// - Launchpad contract
-//
-// If the caller is not one of these contracts, the function will panic with an error.
-//
-// Parameters:
-// - to: The address or name of the user whose balance will be increased.
-// - amount: The amount of tokens to be minted.
-//
-// Errors:
-// - Panics if the caller is unauthorized.
-// - Propagates any error from the ledger.Mint function.
-func MintByLaunchPad(cur realm, to std.Address, amount int64) {
-	currentLevel := halt.GetCurrentHaltLevel()
-	if currentLevel != halt.LvMainnetSafeMode {
-		// Check if withdrawals are specifically halted, not just if the system is halted
-		if err := halt.IsHalted(halt.OpTypeWithdraw); err != nil {
-			panic(err.Error())
-		}
-
-		if halt.IsContractHalted(halt.OpTypeXGns) {
-			panic("xGNS contract operations are currently disabled")
-		}
-	}
+	halt.AssertIsNotHaltedXGns()
 
 	caller := std.PreviousRealm().Address()
-	if err := access.LaunchpadOnly(caller); err != nil {
-		panic(addDetailToError(
-			errNoPermission,
-			ufmt.Sprintf("only launchpad(%s) contract can call MintByLaunchPad, called from %s", launchpadAddr.String(), caller.String()),
-		))
-	}
+	access.AssertIsGovStaker(caller)
 
-	mint(to, amount)
-}
-
-// mint increases the balance of a specified address by a given amount.
-func mint(to std.Address, amount int64) {
 	checkErr(ledger.Mint(to, amount))
 }
 
-// Burn reduces the balance of a specified address by a given amount.
-//
-// This function is restricted to be called only by specific authorized contracts:
-// - Governance staker contract
-// - Launchpad contract
-//
-// If the caller is not one of these contracts, the function will panic with an error.
+// MintByLaunchPad mints tokens to address.
 //
 // Parameters:
-// - from: The address or name of the user whose balance will be reduced.
-// - amount: The amount of tokens to be burned.
+//   - to: recipient address
+//   - amount: amount to mint
 //
-// Errors:
-// - Panics if the caller is unauthorized.
-// - Propagates any error from the ledger.Burn function.
+// Only callable by launchpad contract.
+func MintByLaunchPad(cur realm, to std.Address, amount int64) {
+	halt.AssertIsNotHaltedXGns()
+
+	caller := std.PreviousRealm().Address()
+	access.AssertIsLaunchpad(caller)
+
+	checkErr(ledger.Mint(to, amount))
+}
+
+// Burn burns tokens from address.
+//
+// Parameters:
+//   - from: address to burn from
+//   - amount: amount to burn
+//
+// Only callable by governance staker contract.
 func Burn(cur realm, from std.Address, amount int64) {
-	currentLevel := halt.GetCurrentHaltLevel()
-	if currentLevel != halt.LvMainnetSafeMode {
-		// Check if withdrawals are specifically halted, not just if the system is halted
-		if err := halt.IsHalted(halt.OpTypeWithdraw); err != nil {
-			panic(err.Error())
-		}
-
-		if halt.IsContractHalted(halt.OpTypeXGns) {
-			panic("xGNS contract operations are currently disabled")
-		}
-	}
-
-	// only (gov staker) or (launchpad) contract can call Mint
-	caller := std.PreviousRealm().Address()
-
-	if govStakerAddr == caller || launchpadAddr == caller {
-		burn(from, amount)
-	} else {
-		panic(addDetailToError(
-			errNoPermission,
-			ufmt.Sprintf("only gov/staker(%s) or launchpad(%s) contract can call Burn, called from %s", govStakerAddr.String(), launchpadAddr.String(), caller.String()),
-		))
-	}
-}
-
-func BurnByLaunchPad(cur realm, from std.Address, amount int64) {
-	currentLevel := halt.GetCurrentHaltLevel()
-	if currentLevel != halt.LvMainnetSafeMode {
-		// Check if withdrawals are specifically halted, not just if the system is halted
-		if err := halt.IsHalted(halt.OpTypeWithdraw); err != nil {
-			panic(err.Error())
-		}
-
-		if halt.IsContractHalted(halt.OpTypeXGns) {
-			panic("xGNS contract operations are currently disabled")
-		}
-	}
+	halt.AssertIsNotHaltedXGns()
 
 	caller := std.PreviousRealm().Address()
-	if err := access.LaunchpadOnly(caller); err != nil {
-		panic(addDetailToError(
-			errNoPermission,
-			ufmt.Sprintf("only launchpad(%s) contract can call BurnByLaunchPad, called from %s", launchpadAddr.String(), caller.String()),
-		))
-	}
-	burn(from, amount)
-}
+	access.AssertIsGovStaker(caller)
 
-func burn(from std.Address, amount int64) {
 	checkErr(ledger.Burn(from, amount))
 }
 
-// getContractAddress retrieves the address which registered the role
-func getContractAddress(roleName string) std.Address {
-	addr, _ := access.GetAddress(roleName)
-	return addr
+// BurnByLaunchPad burns tokens from address.
+//
+// Parameters:
+//   - from: address to burn from
+//   - amount: amount to burn
+//
+// Only callable by launchpad contract.
+func BurnByLaunchPad(cur realm, from std.Address, amount int64) {
+	halt.AssertIsNotHaltedXGns()
+
+	caller := std.PreviousRealm().Address()
+	access.AssertIsLaunchpad(caller)
+
+	checkErr(ledger.Burn(from, amount))
 }

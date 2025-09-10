@@ -5,32 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"gno.land/p/demo/json"
+	"gno.land/p/onbloc/json"
 
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/ufmt"
 )
-
-func ApiGetPools() string {
-	rpcPools := []RpcPool{}
-	pools.Iterate("", "", func(poolPath string, value any) bool {
-		rpcPool := newRpcPool(poolPath)
-		rpcPools = append(rpcPools, rpcPool)
-
-		return false
-	})
-
-	responses := json.ArrayNode("", []*json.Node{})
-	for _, pool := range rpcPools {
-		responses.AppendArray(pool.JSON())
-	}
-
-	node := json.ObjectNode("", map[string]*json.Node{
-		"stat":     newStatNode().JSON(),
-		"response": responses,
-	})
-
-	return marshal(node)
-}
 
 func ApiGetPool(poolPath string) string {
 	if !pools.Has(poolPath) {

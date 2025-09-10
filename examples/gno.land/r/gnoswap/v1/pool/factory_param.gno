@@ -3,18 +3,32 @@ package pool
 import (
 	"strings"
 
-	"gno.land/p/demo/ufmt"
-	"gno.land/p/gnoswap/consts"
+	"gno.land/p/nt/ufmt"
 	u256 "gno.land/p/gnoswap/uint256"
 )
 
-var Q192 = new(u256.Uint).Lsh(u256.One(), 192)
+var Q192 = u256.Zero().Lsh(u256.One(), 192)
+
+var (
+	minSqrtRatio = u256.MustFromDecimal(MIN_SQRT_RATIO)
+	maxSqrtRatio = u256.MustFromDecimal(MAX_SQRT_RATIO)
+)
 
 const (
 	FeeTier100   uint32 = 100
 	FeeTier500   uint32 = 500
 	FeeTier3000  uint32 = 3000
 	FeeTier10000 uint32 = 10000
+)
+
+const (
+	GNOT           string = "gnot"
+	WRAPPED_WUGNOT string = "gno.land/r/gnoland/wugnot"
+)
+
+const (
+	MIN_SQRT_RATIO string = "4295128739"
+	MAX_SQRT_RATIO string = "1461446703485210103287273052203988822378723970342"
 )
 
 // poolCreateConfig holds the essential parameters for creating a new pool.
@@ -50,37 +64,28 @@ func (p *poolCreateConfig) Token0Path() string       { return p.token0Path }
 func (p *poolCreateConfig) Token1Path() string       { return p.token1Path }
 func (p *poolCreateConfig) Fee() uint32              { return p.fee }
 
-func (p *poolCreateConfig) updateWithWrapping() *poolCreateConfig {
+func (p *poolCreateConfig) updateWithWrapping() (*poolCreateConfig, error) {
 	token0Path, token1Path := p.wrap()
+
+	// Always validate that the price is within valid range
+	if err := validateSqrtPriceX96(p.sqrtPriceX96); err != nil {
+		return nil, err
+	}
 
 	if !p.isInOrder() {
 		token0Path, token1Path = token1Path, token0Path
-
-		// Check if initial price is within valid range
-		minSqrtRatio := u256.MustFromDecimal(consts.MIN_SQRT_RATIO)
-		maxSqrtRatio := u256.MustFromDecimal(consts.MAX_SQRT_RATIO)
-
-		if p.sqrtPriceX96.Lt(minSqrtRatio) || p.sqrtPriceX96.Gt(maxSqrtRatio) {
-			panic(newErrorWithDetail(
-				errOutOfRange,
-				ufmt.Sprintf("sqrtPriceX96(%s) is out of range", p.sqrtPriceX96.ToString()),
-			))
-		}
 
 		// newPrice = 2^192 / oldPrice
 		newPrice := u256.Zero().Div(Q192, p.sqrtPriceX96)
 
 		// Check if calculated price is within valid range
-		if newPrice.Lt(minSqrtRatio) || newPrice.Gt(maxSqrtRatio) {
-			panic(newErrorWithDetail(
-				errOutOfRange,
-				ufmt.Sprintf("sqrtPriceX96(%s) is out of range", newPrice.ToString()),
-			))
+		if err := validateSqrtPriceX96(newPrice); err != nil {
+			return nil, err
 		}
 
 		p.sqrtPriceX96 = newPrice
 	}
-	return newPoolParams(token0Path, token1Path, p.fee, p.sqrtPriceX96.ToString(), GetFeeAmountTickSpacing(p.fee))
+	return newPoolParams(token0Path, token1Path, p.fee, p.sqrtPriceX96.ToString(), GetFeeAmountTickSpacing(p.fee)), nil
 }
 
 func (p *poolCreateConfig) isSameTokenPath() bool {
@@ -96,21 +101,17 @@ func (p *poolCreateConfig) isInOrder() bool {
 }
 
 func (p *poolCreateConfig) wrap() (string, string) {
-	if p.token0Path == consts.GNOT {
-		p.token0Path = consts.WRAPPED_WUGNOT
+	if p.token0Path == GNOT {
+		p.token0Path = WRAPPED_WUGNOT
 	}
-	if p.token1Path == consts.GNOT {
-		p.token1Path = consts.WRAPPED_WUGNOT
+	if p.token1Path == GNOT {
+		p.token1Path = WRAPPED_WUGNOT
 	}
 	return p.token0Path, p.token1Path
 }
 
-func (p *poolCreateConfig) generatePoolPath() string {
-	if !p.isInOrder() {
-		p.token0Path, p.token1Path = p.token1Path, p.token0Path
-	}
-
-	return ufmt.Sprintf("%s:%s:%d", p.token0Path, p.token1Path, p.fee)
+func (p *poolCreateConfig) poolPath() string {
+	return GetPoolPath(p.token0Path, p.token1Path, p.fee)
 }
 
 func (p *poolCreateConfig) isSupportedFee(feeTier uint32) bool {
@@ -118,5 +119,25 @@ func (p *poolCreateConfig) isSupportedFee(feeTier uint32) bool {
 	case FeeTier100, FeeTier500, FeeTier3000, FeeTier10000:
 		return true
 	}
+	return false
+}
+
+// validateSqrtPriceX96 validates that the given sqrtPriceX96 is within valid range
+func validateSqrtPriceX96(sqrtPriceX96 *u256.Uint) error {
+	if sqrtPriceX96.Lt(minSqrtRatio) || sqrtPriceX96.Gt(maxSqrtRatio) {
+		return makeErrorWithDetails(
+			errOutOfRange,
+			ufmt.Sprintf("sqrtPriceX96(%s) is out of range", sqrtPriceX96.ToString()),
+		)
+	}
+	return nil
+}
+
+func isValidFeeTier(feeTier uint32) bool {
+	switch feeTier {
+	case FeeTier100, FeeTier500, FeeTier3000, FeeTier10000:
+		return true
+	}
+
 	return false
 }

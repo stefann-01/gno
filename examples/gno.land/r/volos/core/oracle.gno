@@ -16,13 +16,10 @@ func GetPrice(marketId string) *u256.Uint {
 	_, params := GetMarket(marketId)
 
 	// Get the sqrt price from the pool
-	sqrtPriceX96Str := pool.PoolGetSlot0SqrtPriceX96(params.PoolPath)
-	if sqrtPriceX96Str == "" {
+	sqrtPriceX96 := pool.GetSlot0SqrtPriceX96(params.PoolPath)
+	if sqrtPriceX96.IsZero() {
 		panic(ErrPriceNotAvailable)
 	}
-
-	// Convert string to uint256
-	sqrtPriceX96 := u256.MustFromDecimal(sqrtPriceX96Str)
 
 	// Square the price to get the actual price in Q192
 	priceQ192 := new(u256.Uint).Mul(sqrtPriceX96, sqrtPriceX96)
