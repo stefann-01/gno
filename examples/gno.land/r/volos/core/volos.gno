@@ -119,19 +119,23 @@ func SetFeeRecipient(cur realm, newFeeRecipient std.Address) {
 }
 
 // setFee sets the fee for a specific market
-func SetFee(cur realm, marketId string, newFee *u256.Uint) {
+func SetFee(cur realm, marketId string, newFee int64) {
 	Ownable.AssertOwnedByPrevious()
+
+	// Convert fee percentage to WAD-scaled value (e.g., 5% -> 0.05 * 1e18)
+	feeUint := u256.NewUint(uint64(newFee))
+	feeWad := math.MulDivDown(feeUint, consts.WAD, u256.NewUint(100)) // This will give us (fee * 1e18) / 100
 
 	// Get market (will panic if not found)
 	market, _ := GetMarket(marketId)
 
 	// Check if fee is already set to the same value
-	if market.Fee.Cmp(newFee) == 0 {
+	if market.Fee.Cmp(feeWad) == 0 {
 		panic(ErrAlreadySet)
 	}
 
 	// Check fee doesn't exceed maximum
-	if newFee.Cmp(consts.MAX_FEE) > 0 {
+	if feeWad.Cmp(consts.MAX_FEE) > 0 {
 		panic(ErrMaxFeeExceeded)
 	}
 
@@ -139,10 +143,10 @@ func SetFee(cur realm, marketId string, newFee *u256.Uint) {
 	accrueInterest(marketId)
 
 	// Update market fee
-	market.Fee = newFee
+	market.Fee = feeWad
 	markets.Set(marketId, market)
 
-	emitSetFee(marketId, newFee.ToString())
+	emitSetFee(marketId, feeWad.ToString())
 }
 
 /* MARKET CREATION */
