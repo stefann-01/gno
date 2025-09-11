@@ -16,7 +16,7 @@ func parseFloat(s string) float64 {
 	return f
 }
 
-func calculateUtilization(marketId string) string {
+func CalculateUtilization(marketId string) string {
 	totalSupply := parseFloat(volos.GetMarketTotalSupplyAssets(marketId))
 	totalBorrow := parseFloat(volos.GetMarketTotalBorrowAssets(marketId))
 

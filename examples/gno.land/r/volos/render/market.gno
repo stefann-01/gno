@@ -3,7 +3,6 @@ package render
 import (
 	"net/url"
 	"std"
-	"strconv"
 	"strings"
 
 	"gno.land/p/demo/avl"
@@ -14,6 +13,8 @@ import (
 	"gno.land/r/demo/grc20reg"
 	"gno.land/r/sys/users"
 	volos "gno.land/r/volos/core"
+	"gno.land/p/volos/math"
+	u256 "gno.land/p/gnoswap/uint256"
 )
 
 func renderMarketPage(path string) string {
@@ -49,10 +50,10 @@ func renderMarketPage(path string) string {
 		Headers: []string{"Parameter", "Value"},
 	}
 	overviewTable.Append([]string{"Pool Path", md.InlineCode(params.PoolPath)})
-	overviewTable.Append([]string{"Loan Token", loanSymbol + " (" + md.InlineCode(loanPath) + ")"})
-	overviewTable.Append([]string{"Collateral Token", collateralSymbol + " (" + md.InlineCode(collateralPath) + ")"})
+	overviewTable.Append([]string{"Loan Token", loanSymbol + " (" + md.Link(loanPath, "/r/"+loanPath) + ")"})
+	overviewTable.Append([]string{"Collateral Token", collateralSymbol + " (" + md.Link(collateralPath, "/r/"+collateralPath) + ")"})
 	overviewTable.Append([]string{"Interest Rate Model", md.InlineCode(params.IRM)})
-	overviewTable.Append([]string{"Liquidation LTV", params.LLTV.ToString() + "%"})
+	overviewTable.Append([]string{"Liquidation LTV", formatPercentage(params.LLTV) + "%"})
 	overviewTable.Append([]string{"Market Fee", market.Fee.ToString()})
 	out += overviewTable.String()
 
@@ -61,19 +62,22 @@ func renderMarketPage(path string) string {
 		Headers: []string{"Metric", "Value", "Rate Type", "APR"},
 	}
 
-	borrowAPR := volos.GetBorrowAPR(marketId)
-	supplyAPR := volos.GetSupplyAPR(marketId)
+	borrowAPR := u256.MustFromDecimal(volos.GetBorrowAPR(marketId))
+	supplyAPR := u256.MustFromDecimal(volos.GetSupplyAPR(marketId))
+	totalSupplyAssets := market.TotalSupplyAssets
+	totalBorrowAssets := market.TotalBorrowAssets
+	utilization := volos.CalculateUtilization(marketId)
 
 	statsTable.Append([]string{
-		"Total Supply Assets", formatMoney(parseFloat(volos.GetMarketTotalSupplyAssets(marketId))),
-		"Borrow Rate", formatRate(borrowAPR) + "%",
+		"Total Supply Assets", formatTokenAmount(totalSupplyAssets, loanToken.GetDecimals()),
+		"Borrow Rate", formatPercentage(borrowAPR) + "%",
 	})
 	statsTable.Append([]string{
-		"Total Borrow Assets", formatMoney(parseFloat(volos.GetMarketTotalBorrowAssets(marketId))),
-		"Supply Rate", formatRate(supplyAPR) + "%",
+		"Total Borrow Assets", formatTokenAmount(totalBorrowAssets, loanToken.GetDecimals()),
+		"Supply Rate", formatPercentage(supplyAPR) + "%",
 	})
 	statsTable.Append([]string{
-		"Utilization Rate", calculateUtilization(marketId) + "%",
+		"Utilization Rate", formatPercentage(utilization) + "%",
 		"Last Update", formatTimestamp(market.LastUpdate),
 	})
 	out += statsTable.String()
@@ -115,16 +119,20 @@ func renderMarketPage(path string) string {
 			}
 
 			userLink := md.Link(displayName, "?user="+userAddr)
-			supplied := pos.SupplyShares.ToString()
-			borrowed := pos.BorrowShares.ToString()
+			supplied := math.ToAssetsUp(pos.SupplyShares, totalSupplyAssets, market.TotalSupplyShares)
+			borrowed := math.ToAssetsUp(pos.BorrowShares, totalBorrowAssets, market.TotalBorrowShares)
+
 			healthFactor := volos.GetHealthFactor(marketId, userAddr)
 
-			hfFloat, _ := strconv.ParseFloat(healthFactor, 64)
-			if hfFloat < 1.0 {
-				healthFactor = "⚠️ " + healthFactor
+			hf := formatPercentage(u256.MustFromDecimal(healthFactor))
+			hfString := hf
+			if parseFloat(hf) < 1.5 {
+				hfString = "⚠️ " + hf
+			} else if parseFloat(hf) > 3.0 {
+				hfString = "🔥 3.00+"
 			}
 
-			positionsTable.Append([]string{userLink, supplied, borrowed, healthFactor})
+			positionsTable.Append([]string{userLink, formatTokenAmount(supplied, loanToken.GetDecimals()), formatTokenAmount(borrowed, loanToken.GetDecimals()), hfString})
 		}
 
 		if len(positionsTable.Rows) > 0 {
