@@ -43,7 +43,7 @@ func renderMarketPage(path string) string {
 		collateralSymbol = collateralToken.GetSymbol()
 	}
 
-	out := md.H1("🏦 " + loanSymbol + "/" + collateralSymbol + " Market")
+	out := md.H1("🏦 " + loanSymbol + "/" + collateralSymbol)
 	out += md.Paragraph("**Market ID:** " + md.InlineCode(marketId))
 
 	out += md.H2("📊 Market Overview")
