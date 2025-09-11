@@ -95,7 +95,7 @@ func renderMarketPage(path string) string {
 		"Utilization Rate",
 		formatPercentage(utilization) + "%",
 		"Last Update: " + formatTimestamp(market.LastUpdate),
-		""
+		"",
 		md.Link("Approve", loanRealm.NewLink("Approve").AddArgs("spender", std.DerivePkgAddr("gno.land/r/volos/core").String(), "amount", "").URL()),
 		"",
 		"",
