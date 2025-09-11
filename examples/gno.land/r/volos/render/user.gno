@@ -2,18 +2,18 @@ package render
 
 import (
 	"std"
-	"strings"
 	"strconv"
+	"strings"
 
+	u256 "gno.land/p/gnoswap/uint256"
 	"gno.land/p/matijamarjanovic/charts"
 	"gno.land/p/moul/md"
 	"gno.land/p/moul/mdtable"
+	"gno.land/p/volos/consts"
+	"gno.land/p/volos/math"
 	"gno.land/r/demo/grc20reg"
 	"gno.land/r/sys/users"
 	volos "gno.land/r/volos/core"
-	"gno.land/p/volos/math"
-	u256 "gno.land/p/gnoswap/uint256"
-	"gno.land/p/volos/consts"
 )
 
 func renderUserPage(path string) string {
@@ -93,8 +93,16 @@ func renderUserPage(path string) string {
 		table.Append([]string{marketLink, supplied, borrowed, collateral, hfString})
 
 		marketLabels = append(marketLabels, marketLabel)
-		if v, err := strconv.ParseFloat(supplied, 64); err == nil { chartSupplied = append(chartSupplied, v) } else { chartSupplied = append(chartSupplied, 0) }
-		if v, err := strconv.ParseFloat(borrowed, 64); err == nil { chartBorrowed = append(chartBorrowed, v) } else { chartBorrowed = append(chartBorrowed, 0) }
+		if v, err := strconv.ParseFloat(supplied, 64); err == nil {
+			chartSupplied = append(chartSupplied, v)
+		} else {
+			chartSupplied = append(chartSupplied, 0)
+		}
+		if v, err := strconv.ParseFloat(borrowed, 64); err == nil {
+			chartBorrowed = append(chartBorrowed, v)
+		} else {
+			chartBorrowed = append(chartBorrowed, 0)
+		}
 	}
 
 	if len(loans) > 0 {
