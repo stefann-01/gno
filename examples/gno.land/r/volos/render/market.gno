@@ -44,15 +44,14 @@ func renderMarketPage(path string) string {
 	}
 
 	out := md.H1("🏦 " + loanSymbol + "/" + collateralSymbol)
-	out += md.Paragraph("**Market ID:** " + md.InlineCode(marketId))
 
 	out += md.H2("📊 Market Overview")
 	overviewTable := mdtable.Table{
 		Headers: []string{"Parameter", "Value"},
 	}
 	overviewTable.Append([]string{"Pool Path", md.InlineCode(params.PoolPath)})
-	overviewTable.Append([]string{"Loan Token", loanSymbol + " (" + md.Link(loanPath, "/r/"+loanPath) + ")"})
-	overviewTable.Append([]string{"Collateral Token", collateralSymbol + " (" + md.Link(collateralPath, "/r/"+collateralPath) + ")"})
+	overviewTable.Append([]string{"Loan Token", md.Link(loanSymbol, strings.ReplaceAll(loanPath, "gno.land/", ""))})
+	overviewTable.Append([]string{"Collateral Token", md.Link(collateralSymbol, strings.ReplaceAll(collateralPath, "gno.land/", ""))})
 	overviewTable.Append([]string{"Interest Rate Model", md.InlineCode(params.IRM)})
 	overviewTable.Append([]string{"Liquidation LTV", formatPercentage(params.LLTV) + "%"})
 	overviewTable.Append([]string{"Market Fee", market.Fee.ToString()})
@@ -136,37 +135,6 @@ func renderMarketPage(path string) string {
 
 		positionsTable := mdtable.Table{
 			Headers: []string{"User", "Supplied", "Borrowed", "Health Factor"},
-		}
-
-		for _, item := range positionPage.Items {
-			userAddr := item.Key
-			pos := volos.GetPosition(marketId, userAddr)
-			if pos.SupplyShares.IsZero() && pos.BorrowShares.IsZero() && pos.Collateral.IsZero() {
-				continue
-			}
-
-			usAddr := std.Address(userAddr)
-			userData := users.ResolveAddress(usAddr)
-			displayName := userAddr
-			if userData != nil && userData.Name() != "" {
-				displayName = userData.Name()
-			}
-
-			userLink := md.Link(displayName, "?user="+userAddr)
-			supplied := math.ToAssetsUp(pos.SupplyShares, totalSupplyAssets, market.TotalSupplyShares)
-			borrowed := math.ToAssetsUp(pos.BorrowShares, totalBorrowAssets, market.TotalBorrowShares)
-
-			healthFactor := volos.GetHealthFactor(marketId, userAddr)
-
-			hf := formatPercentage(u256.MustFromDecimal(healthFactor))
-			hfString := hf
-			if parseFloat(hf) < 1.5 {
-				hfString = "⚠️ " + hf
-			} else if parseFloat(hf) > 3.0 {
-				hfString = "🔥 3.00+"
-			}
-
-			positionsTable.Append([]string{userLink, formatTokenAmount(supplied, loanToken.GetDecimals()), formatTokenAmount(borrowed, loanToken.GetDecimals()), hfString})
 		}
 
 		if len(positionsTable.Rows) > 0 {

@@ -31,14 +31,13 @@ func renderHome(path string) string {
 	out += md.Paragraph("Browse all lending markets on Volos. Each market is defined by a Gnoswap pool, interest rate model, and collateralization parameters.")
 
 	table := mdtable.Table{
-		Headers: []string{"Loan Token", "Collateral Token", "IRM", "Total Borrow Assets", "Total Supply Assets", "LLTV", ""},
+		Headers: []string{"Loan Token", "Collateral Token", "Supply APR", "Borrow APR", "Total Borrow Assets", "Total Supply Assets", "LLTV", ""},
 	}
 	for _, item := range page.Items {
 		marketId := item.Key
 		_, params := volos.GetMarket(marketId)
 		loanPath := params.GetLoanToken()
 		collateralPath := params.GetCollateralToken()
-		irm := params.IRM
 
 		lltvString := formatPercentage(params.LLTV) + "%"
 
@@ -56,9 +55,11 @@ func renderHome(path string) string {
 		loanDecimals := loanToken.GetDecimals()
 		totalBorrowAssets := u256.MustFromDecimal(volos.GetMarketTotalBorrowAssets(marketId))
 		totalSupplyAssets := u256.MustFromDecimal(volos.GetMarketTotalSupplyAssets(marketId))
+		borrowAPR := u256.MustFromDecimal(volos.GetBorrowAPR(marketId))
+		supplyAPR := u256.MustFromDecimal(volos.GetSupplyAPR(marketId))
 
 		viewLink := md.Link("View", "?market="+marketId)
-		table.Append([]string{loanSymbol, collateralSymbol, irm, formatTokenAmount(totalBorrowAssets, loanDecimals), formatTokenAmount(totalSupplyAssets, loanDecimals), lltvString, viewLink})
+		table.Append([]string{loanSymbol, collateralSymbol, formatPercentage(supplyAPR) + "%", formatPercentage(borrowAPR) + "%", formatTokenAmount(totalBorrowAssets, loanDecimals), formatTokenAmount(totalSupplyAssets, loanDecimals), lltvString, viewLink})
 	}
 
 	if len(table.Rows) == 0 {
