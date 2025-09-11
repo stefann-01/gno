@@ -52,7 +52,6 @@ func renderUserPage(path string) string {
 	var marketLabels []string
 	var chartSupplied []float64
 	var chartBorrowed []float64
-	var chartHF []float64
 
 	for _, marketId := range markets {
 		pos := volos.GetPosition(marketId, userAddr)
@@ -96,30 +95,6 @@ func renderUserPage(path string) string {
 		marketLabels = append(marketLabels, marketLabel)
 		if v, err := strconv.ParseFloat(supplied, 64); err == nil { chartSupplied = append(chartSupplied, v) } else { chartSupplied = append(chartSupplied, 0) }
 		if v, err := strconv.ParseFloat(borrowed, 64); err == nil { chartBorrowed = append(chartBorrowed, v) } else { chartBorrowed = append(chartBorrowed, 0) }
-		if v, err := strconv.ParseFloat(hf, 64); err == nil { chartHF = append(chartHF, v) } else { chartHF = append(chartHF, 0) }
-	}
-
-	if len(markets) > 0 {
-		out += md.H2("📈 Positions")
-		out += table.String()
-		out += "\n"
-		if anyRisk {
-			out += md.Paragraph("⚠️ " + md.Bold("Warning: One or more positions are at risk of liquidation!"))
-		}
-
-		if len(chartSupplied) > 0 {
-			out += md.H3("Supplied per Market")
-			out += charts.GenerateBarChart(chartSupplied, marketLabels, 30, "")
-		}
-		if len(chartBorrowed) > 0 {
-			out += md.H3("Borrowed per Market")
-			out += charts.GenerateBarChart(chartBorrowed, marketLabels, 30, "")
-		}
-		if len(chartHF) > 0 {
-			maxCols := 10
-			if len(chartHF) < maxCols { maxCols = len(chartHF) }
-			out += charts.GenerateColumnChart(chartHF, maxCols, "", "Markets", "Health Factor")
-		}
 	}
 
 	if len(loans) > 0 {
@@ -139,6 +114,24 @@ func renderUserPage(path string) string {
 			loansTable.Append([]string{label, amt})
 		}
 		out += loansTable.String()
+	}
+
+	if len(markets) > 0 {
+		out += md.H2("📈 Positions")
+		out += table.String()
+		out += "\n"
+		if anyRisk {
+			out += md.Paragraph("⚠️ " + md.Bold("Warning: One or more positions are at risk of liquidation!"))
+		}
+
+		if len(chartSupplied) > 0 {
+			out += md.H3("Supplied per Market")
+			out += charts.GenerateBarChart(chartSupplied, marketLabels, 30, "")
+		}
+		if len(chartBorrowed) > 0 {
+			out += md.H3("Borrowed per Market")
+			out += charts.GenerateBarChart(chartBorrowed, marketLabels, 30, "")
+		}
 	}
 
 	return out
