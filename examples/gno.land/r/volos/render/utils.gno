@@ -12,7 +12,7 @@ func parseFloat(s string) float64 {
 	f, _ := strconv.ParseFloat(s, 64)
 	return f
 }
-
+ 
 func formatTimestamp(timestamp int64) string {
 	t := time.Unix(timestamp, 0)
 	return t.Format("02 Jan 2006, 15:04:05")
@@ -76,6 +76,7 @@ func formatTokenAmount(tokenAmount *u256.Uint, tokenDecimals int) string {
 		fracStr = "0" + fracStr
 	}
 
+	// Trim trailing zeros
 	idx := len(fracStr) - 1
 	for idx >= 0 && fracStr[idx] == '0' {
 		idx--
@@ -85,5 +86,56 @@ func formatTokenAmount(tokenAmount *u256.Uint, tokenDecimals int) string {
 	}
 	fracStr = fracStr[:idx+1]
 
+	return intStr + "." + fracStr
+}
+
+// pow10Uint returns 10^exp as *u256.Uint. exp>=0.
+func pow10Uint(exp int) *u256.Uint {
+	p := u256.One()
+	if exp <= 0 {
+		return p
+	}
+	ten := u256.NewUint(10)
+	for i := 0; i < exp; i++ {
+		p = new(u256.Uint).Mul(p, ten)
+	}
+	return p
+}
+
+// formatPrice formats a price by moving the decimal point by places = 36 + loanDecimals - collateralDecimals.
+// If places > 0, it divides by 10^places and trims trailing zeros like formatTokenAmount.
+// If places <= 0, it multiplies by 10^(-places) and returns the integer string.
+func formatPrice(price *u256.Uint, loanDecimals, collateralDecimals int) string {
+	if price == nil {
+		return "0"
+	}
+	places := 36 + loanDecimals - collateralDecimals
+	if places <= 0 {
+		// multiply by 10^(-places)
+		mul := pow10Uint(-places)
+		val := new(u256.Uint).Mul(price, mul)
+		return val.ToString()
+	}
+	// divide by 10^places and format like formatTokenAmount
+	pow := pow10Uint(places)
+	q := new(u256.Uint)
+	r := new(u256.Uint)
+	q, r = q.DivMod(price, pow, r)
+	intStr := q.ToString()
+	if r.IsZero() {
+		return intStr
+	}
+	fracStr := r.ToString()
+	for lenFrac := len(fracStr); lenFrac < places; lenFrac++ {
+		fracStr = "0" + fracStr
+	}
+	idx := len(fracStr) - 1
+	for idx >= 0 && fracStr[idx] == '0' {
+		idx--
+	}
+	if idx < 0 {
+		return intStr
+	}
+	fracStr = fracStr[:idx+1]
 	return intStr + "." + fracStr
 }

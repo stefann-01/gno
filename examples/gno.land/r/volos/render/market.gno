@@ -118,7 +118,7 @@ func renderMarketPage(path string) string {
 
 	out += md.H2("💱 Current Price")
 	price := volos.GetMarketPrice(marketId)
-	out += md.Paragraph("**Oracle Price:** " + price + " " + loanSymbol + " per " + collateralSymbol)
+	out += md.Paragraph("**Oracle Price:** " + formatPrice(u256.MustFromDecimal(price), loanToken.GetDecimals(), collateralToken.GetDecimals()) + " " + collateralSymbol + " per " + loanSymbol)
 	out += md.Blockquote("Price sourced from Gnoswap pool: " + params.PoolPath)
 
 	out += md.H2("👥 Top Positions")
