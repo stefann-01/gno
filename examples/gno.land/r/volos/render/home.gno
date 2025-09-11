@@ -7,6 +7,7 @@ import (
 	"gno.land/p/moul/md"
 	"gno.land/p/moul/mdtable"
 	"gno.land/r/demo/grc20reg"
+	u256 "gno.land/p/gnoswap/uint256"
 	volos "gno.land/r/volos/core"
 )
 
@@ -38,7 +39,8 @@ func renderHome(path string) string {
 		loanPath := params.GetLoanToken()
 		collateralPath := params.GetCollateralToken()
 		irm := params.IRM
-		lltv := params.LLTV.ToString()
+
+		lltvString := formatPercentage(params.LLTV) + "%"
 
 		loanToken := grc20reg.Get(loanPath)
 		collateralToken := grc20reg.Get(collateralPath)
@@ -51,11 +53,12 @@ func renderHome(path string) string {
 			collateralSymbol = collateralToken.GetSymbol()
 		}
 
-		totalBorrowAssets := volos.GetMarketTotalBorrowAssets(marketId)
-		totalSupplyAssets := volos.GetMarketTotalSupplyAssets(marketId)
+		loanDecimals := loanToken.GetDecimals()
+		totalBorrowAssets := u256.MustFromDecimal(volos.GetMarketTotalBorrowAssets(marketId))
+		totalSupplyAssets := u256.MustFromDecimal(volos.GetMarketTotalSupplyAssets(marketId))
 
 		viewLink := md.Link("View", "?market="+marketId)
-		table.Append([]string{loanSymbol, collateralSymbol, irm, totalBorrowAssets, totalSupplyAssets, lltv, viewLink})
+		table.Append([]string{loanSymbol, collateralSymbol, irm, formatTokenAmount(totalBorrowAssets, loanDecimals), formatTokenAmount(totalSupplyAssets, loanDecimals), lltvString, viewLink})
 	}
 
 	if len(table.Rows) == 0 {
