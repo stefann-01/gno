@@ -109,14 +109,14 @@ func formatPrice(price *u256.Uint, loanDecimals, collateralDecimals int) string 
 	if price == nil {
 		return "0"
 	}
+
 	places := 36 + loanDecimals - collateralDecimals
 	if places <= 0 {
-		// multiply by 10^(-places)
 		mul := pow10Uint(-places)
 		val := new(u256.Uint).Mul(price, mul)
 		return val.ToString()
 	}
-	// divide by 10^places and format like formatTokenAmount
+
 	pow := pow10Uint(places)
 	q := new(u256.Uint)
 	r := new(u256.Uint)
