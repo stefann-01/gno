@@ -32,7 +32,8 @@ func renderUserPage(path string) string {
 		displayName = userAddr
 	}
 
-	out := md.H1("👤 " + displayName + " User Page")
+	out := md.H1("👤 User Page")
+	out += md.H4(displayName)
 
 	markets := volos.GetUserMarkets(userAddr)
 	loans := volos.GetUserLoans(userAddr)

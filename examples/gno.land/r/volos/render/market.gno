@@ -15,6 +15,7 @@ import (
 	volos "gno.land/r/volos/core"
 	"gno.land/p/volos/math"
 	u256 "gno.land/p/gnoswap/uint256"
+	"gno.land/p/moul/txlink"
 )
 
 func renderMarketPage(path string) string {
@@ -57,9 +58,11 @@ func renderMarketPage(path string) string {
 	overviewTable.Append([]string{"Market Fee", market.Fee.ToString()})
 	out += overviewTable.String()
 
-	out += md.H2("💰 Market Statistics & Rates")
+	coreRealm := txlink.Realm("gno.land/r/volos/core")
+
+	out += md.H2("💰 Market Statistics & Actions")
 	statsTable := mdtable.Table{
-		Headers: []string{"Metric", "Value", "Rate Type", "APR"},
+		Headers: []string{"Metric", "Value", "Rate Type", "APR", "Action", "Action 2"},
 	}
 
 	borrowAPR := u256.MustFromDecimal(volos.GetBorrowAPR(marketId))
@@ -69,18 +72,44 @@ func renderMarketPage(path string) string {
 	utilization := volos.CalculateUtilization(marketId)
 
 	statsTable.Append([]string{
-		"Total Supply Assets", formatTokenAmount(totalSupplyAssets, loanToken.GetDecimals()),
-		"Borrow Rate", formatPercentage(borrowAPR) + "%",
+		"Total Supply Assets",
+		formatTokenAmount(totalSupplyAssets, loanToken.GetDecimals()),
+		"Borrow Rate",
+		formatPercentage(borrowAPR) + "%",
+		md.Link("Borrow", coreRealm.NewLink("Borrow").AddArgs("marketId", marketId, "assets", "", "shares", "").URL()),
+		md.Link("Repay", coreRealm.NewLink("Repay").AddArgs("marketId", marketId, "assets", "", "shares", "").URL()),
 	})
+
 	statsTable.Append([]string{
-		"Total Borrow Assets", formatTokenAmount(totalBorrowAssets, loanToken.GetDecimals()),
-		"Supply Rate", formatPercentage(supplyAPR) + "%",
+		"Supply Rate",
+		formatPercentage(supplyAPR) + "%",
+		"Total Borrow Assets",
+		formatTokenAmount(totalBorrowAssets, loanToken.GetDecimals()),
+		md.Link("Supply", coreRealm.NewLink("Supply").AddArgs("marketId", marketId, "assets", "", "shares", "").URL()),
+		md.Link("Withdraw", coreRealm.NewLink("Withdraw").AddArgs("marketId", marketId, "assets", "", "shares", "").URL()),
 	})
+
 	statsTable.Append([]string{
-		"Utilization Rate", formatPercentage(utilization) + "%",
-		"Last Update", formatTimestamp(market.LastUpdate),
+		"Utilization Rate",
+		formatPercentage(utilization) + "%",
+		"Last Update: " + formatTimestamp(market.LastUpdate),
+		"",
+		"",
+		"",
 	})
 	out += statsTable.String()
+
+	out += md.H2("🛠 Collateral Operations")
+	colTable := mdtable.Table{Headers: []string{"Operation", "Action"}}
+	colTable.Append([]string{
+		"Supply Collateral (" + collateralSymbol + ")",
+		md.Link("Supply Collateral", coreRealm.NewLink("SupplyCollateral").AddArgs("marketId", marketId, "amount", "").URL()),
+	})
+	colTable.Append([]string{
+		"Withdraw Collateral (" + collateralSymbol + ")",
+		md.Link("Withdraw Collateral", coreRealm.NewLink("WithdrawCollateral").AddArgs("marketId", marketId, "amount", "").URL()),
+	})
+	out += colTable.String()
 
 	out += md.H2("💱 Current Price")
 	price := volos.GetMarketPrice(marketId)
