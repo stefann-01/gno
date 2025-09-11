@@ -2,7 +2,7 @@
 GNOLAND_RPC_URL=http://localhost:26657
 CHAINID=dev
 
-ADMIN := g1kjsl2ungmc95mgluq96w8dqlep8d4n8cxdfthk
+ADMIN := g1tzl3sgre0c2zgxfpws9xhq0c069wf7zqh6aqqy
 
 ADDR_VOLOS := g1aaqgmqg85mksser0c5q8mez3nc3ssd93rme8f3 # std.DerivePkgAddr("gno.land/r/volos/core")
 

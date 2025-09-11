@@ -52,6 +52,25 @@ func init() {
 	Ownable = ownable.NewWithAddress(std.Address("g1tzl3sgre0c2zgxfpws9xhq0c069wf7zqh6aqqy"))
 }
 
+// TransferOwnership transfers ownership of the Volos contract to a new owner
+func TransferOwnership(cur realm, newOwner std.Address) {
+	Ownable.AssertOwnedByPrevious()
+
+	// Manually transfer ownership since ownable.TransferOwnership() checks OwnedByCurrent()
+	// but we want to check OwnedByPrevious() (the caller, not the current realm)
+	if !newOwner.IsValid() {
+		panic(ErrInvalidAddress)
+	}
+	
+	prevOwner := Ownable.Owner()
+	
+	// Create a new ownable with the new owner
+	Ownable = ownable.NewWithAddress(newOwner)
+	
+	// Emit ownership transfer event
+	emitTransferOwnership(prevOwner, newOwner)
+}
+
 // RegisterIRM registers a new interest rate model
 func RegisterIRM(cur realm, irm IRM) {
 	// Get IRM name
@@ -120,6 +139,9 @@ func SetFeeRecipient(cur realm, newFeeRecipient std.Address) {
 
 // setFee sets the fee for a specific market
 func SetFee(cur realm, marketId string, newFee int64) {
+
+	print("Current address: ", std.CurrentRealm().Address())
+	print("Previous address: ", std.PreviousRealm().Address())
 	Ownable.AssertOwnedByPrevious()
 
 	// Convert fee percentage to WAD-scaled value (e.g., 5% -> 0.05 * 1e18)

@@ -1,7 +1,3 @@
-include _info.mk
-include ../gnoswap-tests/_info.mk
-include ../gnoswap-tests/test.mk
-
 # =============================================================================
 # MULTI-OPERATIONS WORKFLOW FOR GRAPH DATA GENERATION
 # =============================================================================
