@@ -59,10 +59,12 @@ func renderMarketPage(path string) string {
 	out += overviewTable.String()
 
 	coreRealm := txlink.Realm("gno.land/r/volos/core")
+	loanRealm := txlink.Realm(loanPath)
+	collateralRealm := txlink.Realm(collateralPath)
 
 	out += md.H2("💰 Market Statistics & Actions")
 	statsTable := mdtable.Table{
-		Headers: []string{"Metric", "Value", "Rate Type", "APR", "Action", "Action 2"},
+		Headers: []string{"Metric", "Value", "Rate Type", "APR", "Action", "Action"},
 	}
 
 	borrowAPR := u256.MustFromDecimal(volos.GetBorrowAPR(marketId))
@@ -93,21 +95,24 @@ func renderMarketPage(path string) string {
 		"Utilization Rate",
 		formatPercentage(utilization) + "%",
 		"Last Update: " + formatTimestamp(market.LastUpdate),
-		"",
+		""
+		md.Link("Approve", loanRealm.NewLink("Approve").AddArgs("spender", std.DerivePkgAddr("gno.land/r/volos/core").String(), "amount", "").URL()),
 		"",
 		"",
 	})
 	out += statsTable.String()
 
 	out += md.H2("🛠 Collateral Operations")
-	colTable := mdtable.Table{Headers: []string{"Operation", "Action"}}
+	colTable := mdtable.Table{Headers: []string{"Operation", "Action", "Approve"}}
 	colTable.Append([]string{
 		"Supply Collateral (" + collateralSymbol + ")",
 		md.Link("Supply Collateral", coreRealm.NewLink("SupplyCollateral").AddArgs("marketId", marketId, "amount", "").URL()),
+		md.Link("Approve Collateral", collateralRealm.NewLink("Approve").AddArgs("spender", std.DerivePkgAddr("gno.land/r/volos/core").String(), "amount", "").URL()),
 	})
 	colTable.Append([]string{
 		"Withdraw Collateral (" + collateralSymbol + ")",
 		md.Link("Withdraw Collateral", coreRealm.NewLink("WithdrawCollateral").AddArgs("marketId", marketId, "amount", "").URL()),
+		md.Link("Approve Collateral", collateralRealm.NewLink("Approve").AddArgs("spender", std.DerivePkgAddr("gno.land/r/volos/core").String(), "amount", "").URL()),
 	})
 	out += colTable.String()
 
