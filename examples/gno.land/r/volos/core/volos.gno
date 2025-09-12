@@ -61,12 +61,12 @@ func TransferOwnership(cur realm, newOwner std.Address) {
 	if !newOwner.IsValid() {
 		panic(ErrInvalidAddress)
 	}
-	
+
 	prevOwner := Ownable.Owner()
-	
+
 	// Create a new ownable with the new owner
 	Ownable = ownable.NewWithAddress(newOwner)
-	
+
 	// Emit ownership transfer event
 	emitTransferOwnership(prevOwner, newOwner)
 }

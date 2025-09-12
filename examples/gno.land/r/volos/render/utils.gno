@@ -1,8 +1,8 @@
 package render
 
 import (
-	"time"
 	"strconv"
+	"time"
 
 	u256 "gno.land/p/gnoswap/uint256"
 	"gno.land/p/volos/consts"
@@ -12,7 +12,7 @@ func parseFloat(s string) float64 {
 	f, _ := strconv.ParseFloat(s, 64)
 	return f
 }
- 
+
 func formatTimestamp(timestamp int64) string {
 	t := time.Unix(timestamp, 0)
 	return t.Format("02 Jan 2006, 15:04:05")

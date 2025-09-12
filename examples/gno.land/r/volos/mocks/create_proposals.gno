@@ -3,10 +3,11 @@ package mocks
 import (
 	"std"
 	"time"
-	"gno.land/r/volos/gov/governance"
-	"gno.land/r/volos/gov/vls"
-	"gno.land/r/volos/gov/staker"
+
 	"gno.land/r/volos/core"
+	"gno.land/r/volos/gov/governance"
+	"gno.land/r/volos/gov/staker"
+	"gno.land/r/volos/gov/vls"
 )
 
 // callback function that will be executed if the proposal passes
@@ -30,7 +31,7 @@ func CreateProposals(cur realm) {
 
 	governance.CreateProposal(
 		cross,
-		"Set Fee to 15% - Short Duration", 
+		"Set Fee to 15% - Short Duration",
 		"This proposal sets the market fee to 15% with a short voting period",
 		time.Duration(1*time.Minute),
 		setFeeCallback,
@@ -38,7 +39,7 @@ func CreateProposals(cur realm) {
 
 	governance.CreateProposal(
 		cross,
-		"Set Proposal Threshold to 50000", 
+		"Set Proposal Threshold to 50000",
 		"This proposal sets the proposal threshold to 50000",
 		time.Duration(1*time.Hour),
 		setProposalThresholdCallback,
@@ -46,9 +47,9 @@ func CreateProposals(cur realm) {
 
 	governance.CreateProposal(
 		cross,
-		"Set Voting Power Quorum to 500", 
+		"Set Voting Power Quorum to 500",
 		"This proposal sets the voting power quorum to 500",
 		time.Duration(5*time.Hour),
 		setVotingPowerQuorumCallback,
 	)
-} 
+}

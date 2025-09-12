@@ -155,10 +155,10 @@ func IsIRMEnabled(irm string) {
 // Returns utilization as a WAD-scaled value (totalBorrow / totalSupply)
 func CalculateUtilization(marketId string) *u256.Uint {
 	market, _ := GetMarket(marketId)
-	
+
 	if market.TotalSupplyAssets.IsZero() {
 		return u256.Zero()
 	}
-	
+
 	return math.WDivDown(market.TotalBorrowAssets, market.TotalSupplyAssets)
 }
