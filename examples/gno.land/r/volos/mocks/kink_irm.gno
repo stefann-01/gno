@@ -39,7 +39,7 @@ func (irm *KinkIRM) Name() string {
 // - Above optimal: steep increase to discourage over-borrowing
 func (irm *KinkIRM) BorrowRate(totalSupplyAssets, totalBorrowAssets *u256.Uint) *u256.Uint {
 	if totalSupplyAssets.IsZero() {
-		return u256.Zero()
+		return irm.baseBorrowRate
 	}
 
 	// Calculate utilization rate scaled by WAD
@@ -55,6 +55,7 @@ func (irm *KinkIRM) BorrowRate(totalSupplyAssets, totalBorrowAssets *u256.Uint) 
 		
 		// Convert APR to per-second rate
 		secondsPerYear := u256.NewUint(365 * 24 * 60 * 60)
+
 		return new(u256.Uint).Div(borrowRate, secondsPerYear)
 	}
 
