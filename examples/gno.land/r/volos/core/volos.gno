@@ -140,8 +140,6 @@ func SetFeeRecipient(cur realm, newFeeRecipient std.Address) {
 // setFee sets the fee for a specific market
 func SetFee(cur realm, marketId string, newFee int64) {
 
-	print("Current address: ", std.CurrentRealm().Address())
-	print("Previous address: ", std.PreviousRealm().Address())
 	Ownable.AssertOwnedByPrevious()
 
 	// Convert fee percentage to WAD-scaled value (e.g., 5% -> 0.05 * 1e18)

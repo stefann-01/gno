@@ -31,8 +31,8 @@ func CreateProposals(cur realm) {
 
 	governance.CreateProposal(
 		cross,
-		"Set Fee to 15% - Short Duration",
-		"This proposal sets the market fee to 15% with a short voting period",
+		"Set GNS/WUGNOT Market Fee to 25%",
+		"This proposal seeks to establish a 25% fee structure for the GNS/WUGNOT lending market to optimize protocol revenue and ensure sustainable growth.",
 		time.Duration(1*time.Minute),
 		setFeeCallback,
 	)
@@ -47,8 +47,8 @@ func CreateProposals(cur realm) {
 
 	governance.CreateProposal(
 		cross,
-		"Set Voting Power Quorum to 500",
-		"This proposal sets the voting power quorum to 500",
+		"Decrease Voting Power Quorum to 500",
+		"This proposal seeks to reduce the voting power quorum to 500 xVLS tokens to improve governance accessibility and encourage broader community participation in the Volos protocol.",
 		time.Duration(5*time.Hour),
 		setVotingPowerQuorumCallback,
 	)
