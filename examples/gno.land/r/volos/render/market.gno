@@ -5,9 +5,6 @@ import (
 	"std"
 	"strings"
 
-	"gno.land/p/demo/avl"
-	"gno.land/p/demo/avl/pager"
-	"gno.land/p/demo/avl/rotree"
 	u256 "gno.land/p/gnoswap/uint256"
 	"gno.land/p/moul/md"
 	"gno.land/p/moul/mdtable"
