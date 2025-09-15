@@ -146,6 +146,9 @@ func SetFee(cur realm, marketId string, newFee int64) {
 	feeUint := u256.NewUint(uint64(newFee))
 	feeWad := math.MulDivDown(feeUint, consts.WAD, u256.NewUint(100)) // This will give us (fee * 1e18) / 100
 
+	// Accrue interest using the previous fee before changing it
+	accrueInterest(marketId)
+
 	// Get market (will panic if not found)
 	market, _ := GetMarket(marketId)
 
@@ -158,9 +161,6 @@ func SetFee(cur realm, marketId string, newFee int64) {
 	if feeWad.Cmp(consts.MAX_FEE) > 0 {
 		panic(ErrMaxFeeExceeded)
 	}
-
-	// Accrue interest using the previous fee before changing it
-	accrueInterest(marketId)
 
 	// Update market fee
 	market.Fee = feeWad
@@ -261,11 +261,11 @@ func SupplyOnBehalf(cur realm, marketId string, assets, shares uint64, onBehalf 
 
 	caller := std.PreviousRealm().Address()
 
-	// Get market and params
-	market, params := GetMarket(marketId)
-
 	// Accrue interest before any state changes
 	accrueInterest(marketId)
+
+	// Get market and params
+	market, params := GetMarket(marketId)
 
 	// Calculate shares to mint
 	var sharesToMint *u256.Uint
@@ -336,11 +336,11 @@ func WithdrawOnBehalf(cur realm, marketId string, assets, shares uint64, onBehal
 
 	caller := std.PreviousRealm().Address()
 
-	// Get market and params
-	market, params := GetMarket(marketId)
-
 	// Accrue interest before any state changes
 	accrueInterest(marketId)
+
+	// Get market and params
+	market, params := GetMarket(marketId)
 
 	// Calculate shares to burn
 	var sharesToBurn *u256.Uint
@@ -423,11 +423,11 @@ func BorrowOnBehalf(cur realm, marketId string, assets, shares uint64, onBehalf 
 
 	caller := std.PreviousRealm().Address()
 
-	// Get market and params
-	market, params := GetMarket(marketId)
-
 	// Accrue interest before any state changes
 	accrueInterest(marketId)
+
+	// Get market and params
+	market, params := GetMarket(marketId)
 
 	// Get onBehalf's current position
 	position := GetPosition(marketId, onBehalf.String())
@@ -509,11 +509,11 @@ func RepayOnBehalf(cur realm, marketId string, assets, shares uint64, onBehalf s
 
 	caller := std.PreviousRealm().Address()
 
-	// Get market and params
-	market, params := GetMarket(marketId)
-
 	// Accrue interest before any state changes
 	accrueInterest(marketId)
+
+	// Get market and params
+	market, params := GetMarket(marketId)
 
 	// Calculate shares to burn
 	var sharesToBurn *u256.Uint
@@ -617,10 +617,10 @@ func WithdrawCollateralOnBehalf(cur realm, marketId string, amount uint64, onBeh
 
 	caller := std.PreviousRealm().Address()
 
-	_, params := GetMarket(marketId)
-
 	// Accrue interest before any state changes
 	accrueInterest(marketId)
+
+	_, params := GetMarket(marketId)
 
 	// Get onBehalf's current position
 	position := GetPosition(marketId, onBehalf.String())
@@ -664,15 +664,15 @@ func Liquidate(cur realm, marketId string, borrower std.Address, seizedAssets, r
 		panic(ErrInconsistentAmount)
 	}
 
+	// Accrue interest before making state changes
+	accrueInterest(marketId)
+
 	// Get market data
 	market, params := GetMarket(marketId)
 
 	// Convert inputs to uint256
 	seizedAssetsU256 := u256.NewUint(seizedAssets)
 	repaidSharesU256 := u256.NewUint(repaidShares)
-
-	// Accrue interest before making state changes
-	accrueInterest(marketId)
 
 	// Get borrower's position
 	borrowerPos := GetPosition(marketId, borrower.String())
