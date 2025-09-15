@@ -4,8 +4,8 @@ import (
 	volos "gno.land/r/volos/core"
 
 	u256 "gno.land/p/gnoswap/uint256"
-	"gno.land/p/volos/math"
 	"gno.land/p/volos/consts"
+	"gno.land/p/volos/math"
 )
 
 // KinkIRM implements a kinked interest rate model similar to Aave's model
@@ -13,7 +13,7 @@ import (
 type KinkIRM struct {
 	// Interest rate parameters (all in WAD format - 18 decimals)
 	optimalUtilizationRate *u256.Uint // 80% = 0.8 * WAD
-	baseBorrowRate         *u256.Uint // 2% = 0.02 * WAD  
+	baseBorrowRate         *u256.Uint // 2% = 0.02 * WAD
 	slope1                 *u256.Uint // 4% = 0.04 * WAD
 	slope2                 *u256.Uint // 75% = 0.75 * WAD
 }
@@ -39,7 +39,7 @@ func (irm *KinkIRM) Name() string {
 // - Above optimal: steep increase to discourage over-borrowing
 func (irm *KinkIRM) BorrowRate(totalSupplyAssets, totalBorrowAssets *u256.Uint) *u256.Uint {
 	if totalSupplyAssets.IsZero() {
-		return u256.Zero()
+		return irm.baseBorrowRate
 	}
 
 	// Calculate utilization rate scaled by WAD
@@ -52,9 +52,10 @@ func (irm *KinkIRM) BorrowRate(totalSupplyAssets, totalBorrowAssets *u256.Uint) 
 		utilizationRatio := math.WDivDown(utilization, irm.optimalUtilizationRate)
 		rateIncrease := math.WMulDown(utilizationRatio, irm.slope1)
 		borrowRate := new(u256.Uint).Add(irm.baseBorrowRate, rateIncrease)
-		
+
 		// Convert APR to per-second rate
 		secondsPerYear := u256.NewUint(365 * 24 * 60 * 60)
+
 		return new(u256.Uint).Div(borrowRate, secondsPerYear)
 	}
 
@@ -66,7 +67,7 @@ func (irm *KinkIRM) BorrowRate(totalSupplyAssets, totalBorrowAssets *u256.Uint) 
 	// Rate = Base + Slope1 + (ExcessUtilization / MaxExcess) * Slope2
 	excessRatio := math.WDivDown(excessUtilization, maxExcessUtilization)
 	excessRateIncrease := math.WMulDown(excessRatio, irm.slope2)
-	
+
 	borrowRate := new(u256.Uint).Add(irm.baseBorrowRate, irm.slope1)
 	borrowRate.Add(borrowRate, excessRateIncrease)
 

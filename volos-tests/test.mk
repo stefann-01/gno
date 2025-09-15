@@ -294,3 +294,15 @@ test-calculate-borrow-apr:
 	$(info ************ Testing Calculate Borrow APR ************)
 	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/core.CalculateBorrowAPR(\"gno.land/r/demo/wugnot:gno.land/r/gnoswap/v1/gns:3000:0\")"
 	@echo
+
+# Get borrow rate for GNS-WUGNOT market
+get-borrow-rate-gns-wugnot:
+	$(info ************ Get Borrow Rate for GNS-WUGNOT Market ************)
+	gnokey query vm/qeval -remote $(GNOLAND_RPC_URL) -data "gno.land/r/volos/core.GetBorrowRate(\"gno.land/r/demo/wugnot:gno.land/r/gnoswap/v1/gns:3000:0\")"
+	@echo
+
+# Withdraw supply for GNS-WUGNOT market for specific user
+withdraw-supply-gns-wugnot-user:
+	$(info ************ Withdraw Supply for GNS-WUGNOT Market - User g1tzl3sgre0c2zgxfpws9xhq0c069wf7zqh6aqqy ************)
+	@echo "" | gnokey maketx call -pkgpath gno.land/r/volos/core -func Withdraw -args "gno.land/r/demo/wugnot:gno.land/r/gnoswap/v1/gns:3000:0" -args 2000000000 -args 0 -insecure-password-stdin=true -remote $(GNOLAND_RPC_URL) -broadcast=true -chainid $(CHAINID) -gas-fee 100000000ugnot -gas-wanted 1000000000 -memo "" g1tzl3sgre0c2zgxfpws9xhq0c069wf7zqh6aqqy
+	@echo

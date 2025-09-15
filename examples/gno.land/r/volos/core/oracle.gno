@@ -2,7 +2,7 @@ package core
 
 import (
 	"strings"
-	
+
 	u256 "gno.land/p/gnoswap/uint256"
 	"gno.land/p/volos/consts"
 	"gno.land/p/volos/math"
@@ -28,7 +28,7 @@ func GetPrice(marketId string) *u256.Uint {
 	priceQ192 := new(u256.Uint).Mul(sqrtPriceX96, sqrtPriceX96)
 
 	// Calculate decimal-adjusted scale factor: 10^(36 + loanDecimals - collateralDecimals)
-	scaleFactor := u256.MustFromDecimal("1" + strings.Repeat("0", 36 + int(GetToken(params.GetLoanToken()).GetDecimals()) - int(GetToken(params.GetCollateralToken()).GetDecimals())))
+	scaleFactor := u256.MustFromDecimal("1" + strings.Repeat("0", 36+int(GetToken(params.GetLoanToken()).GetDecimals())-int(GetToken(params.GetCollateralToken()).GetDecimals())))
 
 	// Finally divide by Q192 to get the actual price ratio with adjusted precision
 	price := math.MulDivDown(priceQ192, scaleFactor, consts.Q192)

@@ -65,21 +65,21 @@ const (
 	EventUtilizationKey       = "utilization"
 
 	// Event keys
-	EventMarketIdKey     = "market_id"
-	EventSharesKey       = "shares"
-	EventSeizedKey       = "seized"
-	EventFeeKey          = "fee"
-	EventPkgPathKey      = "pkgpath"
-	EventNameKey         = "name"
-	EventAuthorizerKey   = "authorizer"
-	EventAuthorizedKey   = "authorized"
-	EventIsAuthorizedKey = "is_authorized"
-	EventTokenKey        = "token"
-	EventTimestampKey    = "currentTimestamp"
-	EventFromKey         = "from"
-	EventToKey           = "to"
-	EventSupplyAPRKey    = "supplyAPR"
-	EventBorrowAPRKey    = "borrowAPR"
+	EventMarketIdKey      = "market_id"
+	EventSharesKey        = "shares"
+	EventSeizedKey        = "seized"
+	EventFeeKey           = "fee"
+	EventPkgPathKey       = "pkgpath"
+	EventNameKey          = "name"
+	EventAuthorizerKey    = "authorizer"
+	EventAuthorizedKey    = "authorized"
+	EventIsAuthorizedKey  = "is_authorized"
+	EventTokenKey         = "token"
+	EventTimestampKey     = "currentTimestamp"
+	EventFromKey          = "from"
+	EventToKey            = "to"
+	EventSupplyAPRKey     = "supplyAPR"
+	EventBorrowAPRKey     = "borrowAPR"
 	EventBadDebtAssetsKey = "badDebtAssets"
 	EventBadDebtSharesKey = "badDebtShares"
 	// MarketInfo keys
@@ -200,7 +200,6 @@ func emitRepay(marketId string, caller std.Address, onBehalf std.Address, assets
 	supplyAPR := CalculateSupplyAPR(marketId)
 	borrowAPR := CalculateBorrowAPR(marketId)
 	utilization := CalculateUtilization(marketId)
-
 
 	std.Emit(
 		RepayEvent,
