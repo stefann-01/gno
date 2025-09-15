@@ -5,9 +5,6 @@ import (
 	"std"
 	"strings"
 
-	"gno.land/p/demo/avl"
-	"gno.land/p/demo/avl/pager"
-	"gno.land/p/demo/avl/rotree"
 	u256 "gno.land/p/gnoswap/uint256"
 	"gno.land/p/moul/md"
 	"gno.land/p/moul/mdtable"
@@ -117,35 +114,6 @@ func renderMarketPage(path string) string {
 	price := volos.GetMarketPrice(marketId)
 	out += md.Paragraph("**Oracle Price:** " + formatPrice(u256.MustFromDecimal(price), loanToken.GetDecimals(), collateralToken.GetDecimals()) + " " + collateralSymbol + " per " + loanSymbol)
 	out += md.Blockquote("Price sourced from Gnoswap pool: " + params.PoolPath)
-
-	out += md.H2("👥 Top Positions")
-	positions := volos.GetPositionList(marketId)
-	if len(positions) == 0 {
-		out += md.Paragraph("🦌 No positions in this market yet.")
-	} else {
-		positionsTree := avl.NewTree()
-		for _, userAddr := range positions {
-			positionsTree.Set(userAddr, userAddr)
-		}
-
-		positionPager := pager.NewPager(rotree.Wrap(positionsTree, nil), 5, false)
-		positionPage := positionPager.MustGetPageByPath(path)
-
-		positionsTable := mdtable.Table{
-			Headers: []string{"User", "Supplied", "Borrowed", "Health Factor"},
-		}
-
-		if len(positionsTable.Rows) > 0 {
-			out += positionsTable.String()
-			out += md.HorizontalRule()
-			picker := positionPage.Picker(path)
-			if picker != "" {
-				out += md.Paragraph(picker)
-			}
-		} else {
-			out += md.Paragraph("🦌 No active positions in this market.")
-		}
-	}
-
+	
 	return out
 }
