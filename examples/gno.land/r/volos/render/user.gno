@@ -1,7 +1,6 @@
 package render
 
 import (
-	"std"
 	"strconv"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 	"gno.land/p/volos/consts"
 	"gno.land/p/volos/math"
 	"gno.land/r/demo/grc20reg"
-	"gno.land/r/sys/users"
 	volos "gno.land/r/volos/core"
 )
 
@@ -23,17 +21,10 @@ func renderUserPage(path string) string {
 		return md.Paragraph("No user address provided.")
 	}
 
-	var displayName string
-	usAddr := std.Address(userAddr)
-	userData := users.ResolveAddress(usAddr)
-	if userData != nil && userData.Name() != "" {
-		displayName = userData.Name()
-	} else {
-		displayName = userAddr
-	}
+	displayName := ResolveDisplayName(userAddr)
 
 	out := md.H1("👤 User Page")
-	out += md.H4(displayName)
+	out += md.H4(md.Link(displayName, "/u/"+displayName))
 
 	markets := volos.GetUserMarkets(userAddr)
 	loans := volos.GetUserLoans(userAddr)
