@@ -4,8 +4,10 @@ import (
 	"strconv"
 	"time"
 
+	"std"
 	u256 "gno.land/p/gnoswap/uint256"
 	"gno.land/p/volos/consts"
+	"gno.land/r/sys/users"
 )
 
 func parseFloat(s string) float64 {
@@ -138,4 +140,14 @@ func formatPrice(price *u256.Uint, loanDecimals, collateralDecimals int) string 
 	}
 	fracStr = fracStr[:idx+1]
 	return intStr + "." + fracStr
+}
+
+// ResolveDisplayName returns the user's display name if available; otherwise returns the raw address string.
+func ResolveDisplayName(userAddr string) string {
+	usAddr := std.Address(userAddr)
+	userData := users.ResolveAddress(usAddr)
+	if userData != nil && userData.Name() != "" {
+		return userData.Name()
+	}
+	return userAddr
 }
