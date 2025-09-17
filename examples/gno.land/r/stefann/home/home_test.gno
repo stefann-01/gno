@@ -5,17 +5,24 @@ import (
 	"strings"
 	"testing"
 
-	"gno.land/p/demo/avl"
-	"gno.land/p/demo/testutils"
+	"gno.land/p/nt/avl"
+	"gno.land/p/nt/testutils"
 )
 
+func crossThrough(rlm std.Realm, cr func()) {
+	testing.SetRealm(rlm)
+	cr()
+}
+
 func TestUpdateAboutMe(t *testing.T) {
-	owner := std.Address("g1sd5ezmxt4rwpy52u6wl3l3y085n8x0p6nllxm8")
-	testing.SetOriginCaller(owner)
+	owner := std.Address("g1xdt8hwewudz8cargmfv4zsnw3ax9ccygxzpzxx")
+	testing.SetRealm(std.NewUserRealm(owner))
 
 	profile.aboutMe = []string{}
 
-	UpdateAboutMe("This is my new bio.|I love coding!")
+	crossThrough(std.NewCodeRealm("gno.land/r/stefann/home"), func() {
+		UpdateAboutMe("This is my new bio.|I love coding!")
+	})
 
 	expected := []string{"This is my new bio.", "I love coding!"}
 
@@ -31,17 +38,19 @@ func TestUpdateAboutMe(t *testing.T) {
 }
 
 func TestUpdateCities(t *testing.T) {
-	owner := std.Address("g1sd5ezmxt4rwpy52u6wl3l3y085n8x0p6nllxm8")
-	testing.SetOriginCaller(owner)
+	owner := std.Address("g1xdt8hwewudz8cargmfv4zsnw3ax9ccygxzpzxx")
+	testing.SetRealm(std.NewUserRealm(owner))
 
 	travel.cities = []City{}
 
 	newCities := []City{
-		{Name: "Berlin", URL: "https://example.com/berlin.jpg"},
-		{Name: "Vienna", URL: "https://example.com/vienna.jpg"},
+		{Name: "Berlin", URL: "https://i.imgur.com/PbhVvkx.jpeg"},
+		{Name: "Vienna", URL: "https://i.imgur.com/DA2pFUE.jpeg"},
 	}
 
-	UpdateCities(newCities)
+	crossThrough(std.NewCodeRealm("gno.land/r/stefann/home"), func() {
+		UpdateCities(newCities)
+	})
 
 	if len(travel.cities) != 2 {
 		t.Fatalf("expected 2 cities, got %d", len(travel.cities))
@@ -52,26 +61,16 @@ func TestUpdateCities(t *testing.T) {
 	}
 }
 
-func TestUpdateJarLink(t *testing.T) {
-	owner := std.Address("g1sd5ezmxt4rwpy52u6wl3l3y085n8x0p6nllxm8")
-	testing.SetOriginCaller(owner)
-
-	travel.jarLink = ""
-
-	UpdateJarLink("https://example.com/jar")
-
-	if travel.jarLink != "https://example.com/jar" {
-		t.Fatalf("expected jarLink to be https://example.com/jar, got %s", travel.jarLink)
-	}
-}
 
 func TestUpdateMaxSponsors(t *testing.T) {
-	owner := std.Address("g1sd5ezmxt4rwpy52u6wl3l3y085n8x0p6nllxm8")
-	testing.SetOriginCaller(owner)
+	owner := std.Address("g1xdt8hwewudz8cargmfv4zsnw3ax9ccygxzpzxx")
+	testing.SetRealm(std.NewUserRealm(owner))
 
 	sponsorship.maxSponsors = 0
 
-	UpdateMaxSponsors(10)
+	crossThrough(std.NewCodeRealm("gno.land/r/stefann/home"), func() {
+		UpdateMaxSponsors(10)
+	})
 
 	if sponsorship.maxSponsors != 10 {
 		t.Fatalf("expected maxSponsors to be 10, got %d", sponsorship.maxSponsors)
@@ -82,28 +81,34 @@ func TestUpdateMaxSponsors(t *testing.T) {
 			t.Fatalf("expected panic for setting maxSponsors to 0")
 		}
 	}()
-	UpdateMaxSponsors(0)
+	crossThrough(std.NewCodeRealm("gno.land/r/stefann/home"), func() {
+		UpdateMaxSponsors(0)
+	})
 }
 
 func TestAddCities(t *testing.T) {
-	owner := std.Address("g1sd5ezmxt4rwpy52u6wl3l3y085n8x0p6nllxm8")
-	testing.SetOriginCaller(owner)
+	owner := std.Address("g1xdt8hwewudz8cargmfv4zsnw3ax9ccygxzpzxx")
+	testing.SetRealm(std.NewUserRealm(owner))
 
 	travel.cities = []City{}
 
-	AddCities(City{Name: "Berlin", URL: "https://example.com/berlin.jpg"})
+	crossThrough(std.NewCodeRealm("gno.land/r/stefann/home"), func() {
+		AddCities(City{Name: "Berlin", URL: "https://i.imgur.com/PbhVvkx.jpeg"})
+	})
 
 	if len(travel.cities) != 1 {
 		t.Fatalf("expected 1 city, got %d", len(travel.cities))
 	}
-	if travel.cities[0].Name != "Berlin" || travel.cities[0].URL != "https://example.com/berlin.jpg" {
+	if travel.cities[0].Name != "Berlin" || travel.cities[0].URL != "https://i.imgur.com/PbhVvkx.jpeg" {
 		t.Fatalf("expected city to be Berlin, got %+v", travel.cities[0])
 	}
 
-	AddCities(
-		City{Name: "Paris", URL: "https://example.com/paris.jpg"},
-		City{Name: "Tokyo", URL: "https://example.com/tokyo.jpg"},
-	)
+	crossThrough(std.NewCodeRealm("gno.land/r/stefann/home"), func() {
+		AddCities(
+			City{Name: "Paris", URL: "https://i.imgur.com/PbhVvkx.jpeg"},
+			City{Name: "Tokyo", URL: "https://i.imgur.com/n1rxdAl.jpeg"},
+		)
+	})
 
 	if len(travel.cities) != 3 {
 		t.Fatalf("expected 3 cities, got %d", len(travel.cities))
@@ -114,12 +119,14 @@ func TestAddCities(t *testing.T) {
 }
 
 func TestAddAboutMeRows(t *testing.T) {
-	owner := std.Address("g1sd5ezmxt4rwpy52u6wl3l3y085n8x0p6nllxm8")
-	testing.SetOriginCaller(owner)
+	owner := std.Address("g1xdt8hwewudz8cargmfv4zsnw3ax9ccygxzpzxx")
+	testing.SetRealm(std.NewUserRealm(owner))
 
 	profile.aboutMe = []string{}
 
-	AddAboutMeRows("I love exploring new technologies!")
+	crossThrough(std.NewCodeRealm("gno.land/r/stefann/home"), func() {
+		AddAboutMeRows("I love exploring new technologies!")
+	})
 
 	if len(profile.aboutMe) != 1 {
 		t.Fatalf("expected 1 aboutMe row, got %d", len(profile.aboutMe))
@@ -128,7 +135,9 @@ func TestAddAboutMeRows(t *testing.T) {
 		t.Fatalf("expected first aboutMe row to be 'I love exploring new technologies!', got %s", profile.aboutMe[0])
 	}
 
-	AddAboutMeRows("Travel is my passion!", "Always learning.")
+	crossThrough(std.NewCodeRealm("gno.land/r/stefann/home"), func() {
+		AddAboutMeRows("Travel is my passion!", "Always learning.")
+	})
 
 	if len(profile.aboutMe) != 3 {
 		t.Fatalf("expected 3 aboutMe rows, got %d", len(profile.aboutMe))
@@ -140,7 +149,7 @@ func TestAddAboutMeRows(t *testing.T) {
 
 func TestDonate(t *testing.T) {
 	user := testutils.TestAddress("user")
-	testing.SetOriginCaller(user)
+	testing.SetRealm(std.NewUserRealm(user))
 
 	sponsorship.sponsors = avl.NewTree()
 	sponsorship.DonationsCount = 0
@@ -196,7 +205,7 @@ func TestDonate(t *testing.T) {
 
 func TestGetTopSponsors(t *testing.T) {
 	user := testutils.TestAddress("user")
-	testing.SetOriginCaller(user)
+	testing.SetRealm(std.NewUserRealm(user))
 
 	sponsorship.sponsors = avl.NewTree()
 	sponsorship.sponsorsCount = 0
@@ -227,7 +236,7 @@ func TestGetTopSponsors(t *testing.T) {
 
 func TestGetTotalDonations(t *testing.T) {
 	user := testutils.TestAddress("user")
-	testing.SetOriginCaller(user)
+	testing.SetRealm(std.NewUserRealm(user))
 
 	sponsorship.sponsors = avl.NewTree()
 	sponsorship.sponsorsCount = 0
@@ -247,8 +256,8 @@ func TestGetTotalDonations(t *testing.T) {
 func TestRender(t *testing.T) {
 	travel.currentCityIndex = 0
 	travel.cities = []City{
-		{Name: "Venice", URL: "https://example.com/venice.jpg"},
-		{Name: "Paris", URL: "https://example.com/paris.jpg"},
+		{Name: "Venice", URL: "https://i.imgur.com/rKigpTQ.jpeg"},
+		{Name: "Paris", URL: "https://i.imgur.com/PbhVvkx.jpeg"},
 	}
 
 	output := Render("")
@@ -258,7 +267,7 @@ func TestRender(t *testing.T) {
 		t.Fatalf("expected output to contain city name '%s', got %s", expectedCity, output)
 	}
 
-	expectedURL := "https://example.com/venice.jpg"
+	expectedURL := "https://i.imgur.com/rKigpTQ.jpeg"
 	if !strings.Contains(output, expectedURL) {
 		t.Fatalf("expected output to contain city URL '%s', got %s", expectedURL, output)
 	}
@@ -271,8 +280,32 @@ func TestRender(t *testing.T) {
 		t.Fatalf("expected output to contain city name '%s', got %s", expectedCity, output)
 	}
 
-	expectedURL = "https://example.com/paris.jpg"
+	expectedURL = "https://i.imgur.com/PbhVvkx.jpeg"
 	if !strings.Contains(output, expectedURL) {
 		t.Fatalf("expected output to contain city URL '%s', got %s", expectedURL, output)
+	}
+}
+
+func TestRenderTipsJar(t *testing.T) {
+	jarOutput := renderTipsJar()
+	
+	// Check that it contains the tips jar image
+	if !strings.Contains(jarOutput, "https://i.ibb.co/4TH9zbw/tips-jar.png") {
+		t.Fatalf("expected tips jar image URL, got %s", jarOutput)
+	}
+	
+	// Check that it contains a txlink (should contain function name and help pattern)
+	if !strings.Contains(jarOutput, "Donate") {
+		t.Fatalf("expected txlink to call Donate function, got %s", jarOutput)
+	}
+	
+	// Check that it contains the txlink pattern
+	if !strings.Contains(jarOutput, "$help&func=Donate") {
+		t.Fatalf("expected txlink pattern, got %s", jarOutput)
+	}
+	
+	// Check that it contains the send value
+	if !strings.Contains(jarOutput, "1000000ugnot") {
+		t.Fatalf("expected txlink to include 1000000ugnot send value, got %s", jarOutput)
 	}
 }

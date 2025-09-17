@@ -5,9 +5,10 @@ import (
 	"std"
 	"strings"
 
-	"gno.land/p/demo/avl"
-	"gno.land/p/demo/ownable"
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/moul/txlink"
+	"gno.land/p/nt/avl"
+	"gno.land/p/nt/ownable"
+	"gno.land/p/nt/ufmt"
 	"gno.land/r/leon/hor"
 	"gno.land/r/sys/users"
 
@@ -31,7 +32,6 @@ type Profile struct {
 type Travel struct {
 	cities           []City
 	currentCityIndex int
-	jarLink          string
 }
 
 type Sponsorship struct {
@@ -50,7 +50,7 @@ var (
 
 func init() {
 	owner = ownable.NewWithAddress(registry.MainAddr())
-	hor.Register("Stefann's Home Realm", "")
+	hor.Register(cross, "Stefann's Home Realm", "Support my travel adventures!")
 
 	profile = Profile{
 		aboutMe: []string{
@@ -64,23 +64,22 @@ func init() {
 
 	travel = Travel{
 		cities: []City{
-			{Name: "Venice", URL: "https://i.ibb.co/1mcZ7b1/venice.jpg"},
-			{Name: "Tokyo", URL: "https://i.ibb.co/wNDJv3H/tokyo.jpg"},
-			{Name: "São Paulo", URL: "https://i.ibb.co/yWMq2Sn/sao-paulo.jpg"},
-			{Name: "Toronto", URL: "https://i.ibb.co/pb95HJB/toronto.jpg"},
-			{Name: "Bangkok", URL: "https://i.ibb.co/pQy3w2g/bangkok.jpg"},
-			{Name: "New York", URL: "https://i.ibb.co/6JWLm0h/new-york.jpg"},
-			{Name: "Paris", URL: "https://i.ibb.co/q9vf6Hs/paris.jpg"},
-			{Name: "Kandersteg", URL: "https://i.ibb.co/60DzywD/kandersteg.jpg"},
-			{Name: "Rothenburg", URL: "https://i.ibb.co/cr8d2rQ/rothenburg.jpg"},
-			{Name: "Capetown", URL: "https://i.ibb.co/bPGn0v3/capetown.jpg"},
-			{Name: "Sydney", URL: "https://i.ibb.co/TBNzqfy/sydney.jpg"},
-			{Name: "Oeschinen Lake", URL: "https://i.ibb.co/QJQwp2y/oeschinen-lake.jpg"},
-			{Name: "Barra Grande", URL: "https://i.ibb.co/z4RXKc1/barra-grande.jpg"},
-			{Name: "London", URL: "https://i.ibb.co/CPGtvgr/london.jpg"},
+			{Name: "Venice", URL: "https://i.imgur.com/rKigpTQ.jpeg"},
+			{Name: "Tokyo", URL: "https://i.imgur.com/n1rxdAl.jpeg"},
+			{Name: "São Paulo", URL: "https://i.imgur.com/ILjIwmy.jpeg"},
+			{Name: "Toronto", URL: "https://i.imgur.com/DA2pFUE.jpeg"},
+			{Name: "Bangkok", URL: "https://i.imgur.com/Il4UFMy.jpeg"},
+			{Name: "New York", URL: "https://i.imgur.com/DpkjE4N.jpeg"},
+			{Name: "Paris", URL: "https://i.imgur.com/PbhVvkx.jpeg"},
+			{Name: "Kandersteg", URL: "https://i.imgur.com/qBu7AcN.jpeg"},
+			{Name: "Rothenburg", URL: "https://i.imgur.com/qt9GNRT.jpeg"},
+			{Name: "Capetown", URL: "https://i.imgur.com/S3SA1OT.jpeg"},
+			{Name: "Sydney", URL: "https://i.imgur.com/cSIzAa6.jpeg"},
+			{Name: "Oeschinen Lake", URL: "https://i.imgur.com/yGHfQGF.jpeg"},
+			{Name: "Barra Grande", URL: "https://i.imgur.com/E9QDAss.jpeg"},
+			{Name: "London", URL: "https://i.imgur.com/XnpRGHd.jpeg"},
 		},
 		currentCityIndex: 0,
-		jarLink:          "https://TODO", // This value should be injected through UpdateJarLink after deployment.
 	}
 
 	sponsorship = Sponsorship{
@@ -102,10 +101,6 @@ func AddCities(newCities ...City) {
 	travel.cities = append(travel.cities, newCities...)
 }
 
-func UpdateJarLink(newLink string) {
-	owner.AssertOwnedByPrevious()
-	travel.jarLink = newLink
-}
 
 func UpdateAboutMe(aboutMeStr string) {
 	owner.AssertOwnedByPrevious()
@@ -127,28 +122,32 @@ func UpdateMaxSponsors(newMax int) {
 }
 
 func Donate() {
-	address := std.OriginCaller()
+	caller := std.OriginCaller()
 	amount := std.OriginSend()
 
 	if amount.AmountOf("ugnot") == 0 {
 		panic("Donation must include GNOT")
 	}
 
-	existingAmount, exists := sponsorship.sponsors.Get(address.String())
+	existingAmount, exists := sponsorship.sponsors.Get(caller.String())
 	if exists {
 		updatedAmount := existingAmount.(std.Coins).Add(amount)
-		sponsorship.sponsors.Set(address.String(), updatedAmount)
+		sponsorship.sponsors.Set(caller.String(), updatedAmount)
 	} else {
-		sponsorship.sponsors.Set(address.String(), amount)
+		sponsorship.sponsors.Set(caller.String(), amount)
 		sponsorship.sponsorsCount++
 	}
 
 	travel.currentCityIndex++
 	sponsorship.DonationsCount++
 
+	// Send coins to owner if there are any
 	banker := std.NewBanker(std.BankerTypeRealmSend)
 	ownerAddr := registry.MainAddr()
-	banker.SendCoins(std.CurrentRealm().Address(), ownerAddr, banker.GetCoins(std.CurrentRealm().Address()))
+	realmCoins := banker.GetCoins(std.CurrentRealm().Address())
+	if len(realmCoins) > 0 {
+		banker.SendCoins(std.CurrentRealm().Address(), ownerAddr, realmCoins)
+	}
 }
 
 type SponsorSlice []Sponsor
@@ -284,5 +283,6 @@ func renderSponsors() string {
 }
 
 func renderTipsJar() string {
-	return ufmt.Sprintf("[![Tips Jar](https://i.ibb.co/4TH9zbw/tips-jar.png)](%s)", travel.jarLink)
+	donateLink := txlink.NewLink("Donate").SetSend("1000000ugnot").URL()
+	return ufmt.Sprintf("[![Tips Jar](https://i.ibb.co/4TH9zbw/tips-jar.png)](%s)", donateLink)
 }

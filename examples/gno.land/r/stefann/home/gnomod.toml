@@ -1,4 +1,4 @@
-module = "gno.land/r/stefann/registry"
+module = "gno.land/r/stefann/home"
 gno = "0.9"
 
 [addpkg]

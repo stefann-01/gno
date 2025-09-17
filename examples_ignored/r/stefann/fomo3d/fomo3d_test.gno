@@ -27,7 +27,7 @@ func setupTestGame(t *testing.T) {
 		OwnerFee:     0,
 	}
 	players = avl.NewTree()
-	Ownable = ownable.NewWithOrigin()
+	Ownable = ownable.New()
 }
 
 // Test ownership functionality
