@@ -4,16 +4,23 @@ import (
 	"std"
 	"testing"
 
-	"gno.land/p/demo/testutils"
+	"gno.land/p/nt/testutils"
 )
+
+func crossThrough(rlm std.Realm, cr func()) {
+	testing.SetRealm(rlm)
+	cr()
+}
 
 func TestUpdateGithubUrl(t *testing.T) {
 	caller := std.Address("g1d24j8fwnc0w5q427fauyey4gdd30qgu69k6n0x")
-	testing.SetOriginCaller(caller)
+	testing.SetRealm(std.NewUserRealm(caller))
 
 	newUrl := "https://github.com/example"
 
-	UpdateGithubUrl(newUrl)
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		UpdateGithubUrl(newUrl)
+	})
 
 	if githubUrl != newUrl {
 		t.Fatalf("GitHub url not updated properly!")
@@ -22,33 +29,37 @@ func TestUpdateGithubUrl(t *testing.T) {
 
 func TestUpdateLinkedinUrl(t *testing.T) {
 	caller := std.Address("g1d24j8fwnc0w5q427fauyey4gdd30qgu69k6n0x")
-	testing.SetOriginCaller(caller)
+	testing.SetRealm(std.NewUserRealm(caller))
 
 	newUrl := "https://www.linkedin.com/in/example"
 
-	UpdateGithubUrl(newUrl)
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		UpdateLinkedinUrl(newUrl)
+	})
 
-	if githubUrl != newUrl {
+	if linkedinUrl != newUrl {
 		t.Fatalf("LinkedIn url not updated properly!")
 	}
 }
 
 func TestUpdateAboutMe(t *testing.T) {
 	caller := std.Address("g1d24j8fwnc0w5q427fauyey4gdd30qgu69k6n0x")
-	testing.SetOriginCaller(caller)
+	testing.SetRealm(std.NewUserRealm(caller))
 
 	newAboutMe := "This is new description!"
 
-	UpdateAboutMe(newAboutMe)
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		UpdateAboutMe(newAboutMe)
+	})
 
 	if aboutMe != newAboutMe {
-		t.Fatalf("About mew not updated properly!")
+		t.Fatalf("About me not updated properly!")
 	}
 }
 
 func TestUpdateSelectedImage(t *testing.T) {
 	user := testutils.TestAddress("user")
-	testing.SetOriginCaller(user)
+	testing.SetRealm(std.NewUserRealm(user))
 
 	validImageUrl := "https://i.ibb.co/hLtmnX0/beautiful-rain-forest-ang-ka-nature-trail-doi-inthanon-national-park-thailand-36703721.webp"
 
@@ -85,11 +96,13 @@ func TestUpdateSelectedImage(t *testing.T) {
 
 func TestUpdateImagePrice(t *testing.T) {
 	caller := std.Address("g1d24j8fwnc0w5q427fauyey4gdd30qgu69k6n0x")
-	testing.SetOriginCaller(caller)
+	testing.SetRealm(std.NewUserRealm(caller))
 
 	var newImageUpdatePrice int64 = 3000000
 
-	UpdateImagePrice(newImageUpdatePrice)
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		UpdateImagePrice(newImageUpdatePrice)
+	})
 
 	if imageUpdatePrice != newImageUpdatePrice {
 		t.Fatalf("Image update price not updated properly!")

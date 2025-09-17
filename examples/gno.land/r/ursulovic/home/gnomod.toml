@@ -1,0 +1,5 @@
+module = "gno.land/r/ursulovic/home"
+gno = "0.9"
+
+[addpkg]
+  creator = "g1d24j8fwnc0w5q427fauyey4gdd30qgu69k6n0x"

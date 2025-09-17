@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gno.land/p/demo/ownable"
+	"gno.land/p/nt/ownable"
 	"gno.land/p/moul/md"
 	"gno.land/r/leon/hor"
 
@@ -34,7 +34,7 @@ func init() {
 	linkedinUrl = "https://www.linkedin.com/in/ivan-ursulovic-953310190/"
 	imageUpdatePrice = 5000000
 	isValidUrl = defaultURLValidation
-	hor.Register("Ivan's Home Realm", "Welcome to my Home Realm!")
+	hor.Register(cross, "Ivan's Home Realm", "Welcome to my Home Realm!")
 }
 
 func Render(s string) string {
