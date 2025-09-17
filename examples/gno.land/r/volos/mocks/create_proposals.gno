@@ -39,8 +39,8 @@ func CreateProposals(cur realm) {
 
 	governance.CreateProposal(
 		cross,
-		"Set Proposal Threshold to 50000",
-		"This proposal sets the proposal threshold to 50000",
+		"Set Proposal Creation Threshold to 50000 xVLS",
+		"This proposal seeks to establish a proposal creation threshold of 50000 xVLS tokens to ensure that only serious and well-resourced community members can submit governance proposals, maintaining proposal quality and preventing spam.",
 		time.Duration(1*time.Hour),
 		setProposalThresholdCallback,
 	)
