@@ -1,12 +1,13 @@
 package dice_roller
 
 import (
+	"std"
 	"testing"
 
-	"gno.land/p/demo/avl"
-	"gno.land/p/demo/seqid"
-	"gno.land/p/demo/testutils"
-	"gno.land/p/demo/urequire"
+	"gno.land/p/nt/avl"
+	"gno.land/p/nt/seqid"
+	"gno.land/p/nt/testutils"
+	"gno.land/p/nt/urequire"
 )
 
 var (
@@ -14,6 +15,11 @@ var (
 	player2       = testutils.TestAddress("bob")
 	unknownPlayer = testutils.TestAddress("unknown")
 )
+
+func crossThrough(rlm std.Realm, cr func()) {
+	testing.SetRealm(rlm)
+	cr()
+}
 
 // resetGameState resets the game state for testing
 func resetGameState() {
@@ -26,8 +32,11 @@ func resetGameState() {
 func TestNewGame(t *testing.T) {
 	resetGameState()
 
-	testing.SetOriginCaller(player1)
-	gameID := NewGame(player2)
+	testing.SetRealm(std.NewUserRealm(player1))
+	var gameID int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		gameID = NewGame(player2)
+	})
 
 	// Verify that the game has been correctly initialized
 	g, err := getGame(gameID)
@@ -42,14 +51,20 @@ func TestNewGame(t *testing.T) {
 func TestPlay(t *testing.T) {
 	resetGameState()
 
-	testing.SetOriginCaller(player1)
-	gameID := NewGame(player2)
+	testing.SetRealm(std.NewUserRealm(player1))
+	var gameID int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		gameID = NewGame(player2)
+	})
 
 	g, err := getGame(gameID)
 	urequire.NoError(t, err)
 
 	// Simulate rolling dice for player 1
-	roll1 := Play(gameID)
+	var roll1 int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		roll1 = Play(gameID)
+	})
 
 	// Verify player 1's roll
 	urequire.NotEqual(t, 0, g.roll1)
@@ -57,8 +72,11 @@ func TestPlay(t *testing.T) {
 	urequire.Equal(t, 0, g.roll2) // Player 2 hasn't rolled yet
 
 	// Simulate rolling dice for player 2
-	testing.SetOriginCaller(player2)
-	roll2 := Play(gameID)
+	testing.SetRealm(std.NewUserRealm(player2))
+	var roll2 int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		roll2 = Play(gameID)
+	})
 
 	// Verify player 2's roll
 	urequire.NotEqual(t, 0, g.roll2)
@@ -70,12 +88,18 @@ func TestPlay(t *testing.T) {
 func TestPlayAgainstSelf(t *testing.T) {
 	resetGameState()
 
-	testing.SetOriginCaller(player1)
-	gameID := NewGame(player1)
+	testing.SetRealm(std.NewUserRealm(player1))
+	var gameID int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		gameID = NewGame(player1)
+	})
 
 	// Simulate rolling dice twice by the same player
-	roll1 := Play(gameID)
-	roll2 := Play(gameID)
+	var roll1, roll2 int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		roll1 = Play(gameID)
+		roll2 = Play(gameID)
+	})
 
 	g, err := getGame(gameID)
 	urequire.NoError(t, err)
@@ -87,13 +111,18 @@ func TestPlayAgainstSelf(t *testing.T) {
 func TestPlayInvalidPlayer(t *testing.T) {
 	resetGameState()
 
-	testing.SetOriginCaller(player1)
-	gameID := NewGame(player1)
+	testing.SetRealm(std.NewUserRealm(player1))
+	var gameID int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		gameID = NewGame(player1)
+	})
 
 	// Attempt to play as an invalid player
-	testing.SetOriginCaller(unknownPlayer)
+	testing.SetRealm(std.NewUserRealm(unknownPlayer))
 	urequire.PanicsWithMessage(t, "invalid player", func() {
-		Play(gameID)
+		crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+			Play(gameID)
+		})
 	})
 }
 
@@ -101,15 +130,22 @@ func TestPlayInvalidPlayer(t *testing.T) {
 func TestPlayAlreadyPlayed(t *testing.T) {
 	resetGameState()
 
-	testing.SetOriginCaller(player1)
-	gameID := NewGame(player2)
+	testing.SetRealm(std.NewUserRealm(player1))
+	var gameID int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		gameID = NewGame(player2)
+	})
 
 	// Player 1 rolls
-	Play(gameID)
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		Play(gameID)
+	})
 
 	// Player 1 tries to roll again
 	urequire.PanicsWithMessage(t, "already played", func() {
-		Play(gameID)
+		crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+			Play(gameID)
+		})
 	})
 }
 
@@ -117,22 +153,31 @@ func TestPlayAlreadyPlayed(t *testing.T) {
 func TestPlayBeyondGameEnd(t *testing.T) {
 	resetGameState()
 
-	testing.SetOriginCaller(player1)
-	gameID := NewGame(player2)
+	testing.SetRealm(std.NewUserRealm(player1))
+	var gameID int
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		gameID = NewGame(player2)
+	})
 
 	// Play for both players
-	testing.SetOriginCaller(player1)
-	Play(gameID)
-	testing.SetOriginCaller(player2)
-	Play(gameID)
+	testing.SetRealm(std.NewUserRealm(player1))
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		Play(gameID)
+	})
+	testing.SetRealm(std.NewUserRealm(player2))
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		Play(gameID)
+	})
 
 	// Check if the game is over
 	_, err := getGame(gameID)
 	urequire.NoError(t, err)
 
 	// Attempt to play more should fail
-	testing.SetOriginCaller(player1)
+	testing.SetRealm(std.NewUserRealm(player1))
 	urequire.PanicsWithMessage(t, "game over", func() {
-		Play(gameID)
+		crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+			Play(gameID)
+		})
 	})
 }

@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"gno.land/p/demo/avl"
 	"gno.land/p/demo/entropy"
-	"gno.land/p/demo/seqid"
-	"gno.land/p/demo/ufmt"
+	"gno.land/p/nt/avl"
+	"gno.land/p/nt/seqid"
+	"gno.land/p/nt/ufmt"
 
 	"gno.land/r/sys/users"
 )
@@ -274,8 +274,8 @@ func getPlayer(addr std.Address) *player {
 func getLeaderBoard() leaderBoard {
 	board := leaderBoard{}
 	players.Iterate("", "", func(key string, value any) bool {
-		player := value.(*player)
-		board = append(board, *player)
+		p := value.(*player)
+		board = append(board, *p)
 		return false
 	})
 
