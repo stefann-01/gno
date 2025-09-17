@@ -4,9 +4,9 @@ import (
 	"std"
 	"testing"
 
-	"gno.land/p/demo/testutils"
-	"gno.land/p/demo/uassert"
-	"gno.land/p/demo/urequire"
+	"gno.land/p/nt/testutils"
+	"gno.land/p/nt/uassert"
+	"gno.land/p/nt/urequire"
 )
 
 var (
@@ -17,6 +17,11 @@ var (
 	addr2 = testutils.TestAddress("addr2")
 	addr3 = testutils.TestAddress("addr3")
 )
+
+func crossThrough(rlm std.Realm, cr func()) {
+	testing.SetRealm(rlm)
+	cr()
+}
 
 func TestInitialOwnership(t *testing.T) {
 	uassert.Equal(t, OwnableMain.Owner(), mainAddr)

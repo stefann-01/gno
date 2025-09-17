@@ -1,10 +1,11 @@
 package home
 
 import (
+	"std"
 	"testing"
 
-	"gno.land/p/demo/testutils"
-	"gno.land/p/demo/uassert"
+	"gno.land/p/nt/testutils"
+	"gno.land/p/nt/uassert"
 	"gno.land/r/mouss/config"
 )
 
@@ -13,6 +14,11 @@ var (
 	user2    = testutils.TestAddress("user2")
 	mainAddr = config.OwnableMain.Owner()
 )
+
+func crossThrough(rlm std.Realm, cr func()) {
+	testing.SetRealm(rlm)
+	cr()
+}
 
 func TestProfile(t *testing.T) {
 	uassert.NotEmpty(t, profile.AboutMe, "AboutMe should not be empty")
@@ -23,14 +29,17 @@ func TestProfile(t *testing.T) {
 }
 
 func TestAddRecipe(t *testing.T) {
-	testing.SetOriginCaller(user1)
+	testing.SetRealm(std.NewUserRealm(user1))
 	name := "Test Recipe"
 	origin := "Test Origin"
 	ingredients := "Ingredient 1\nIngredient 2"
 	instructions := "Step 1\nStep 2"
 	tips := "Test Tips"
 
-	result := AddRecipe(name, origin, ingredients, instructions, tips)
+	var result string
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		result = AddRecipe(name, origin, ingredients, instructions, tips)
+	})
 	uassert.Equal(t, "Recipe added successfully", result)
 	uassert.Equal(t, 1, recipes.Size())
 	value, exist := recipes.Get(name)
@@ -64,35 +73,49 @@ func TestAddRecipe(t *testing.T) {
 
 func TestFollow(t *testing.T) {
 	// Test user following admin's profile
-	testing.SetOriginCaller(user1)
-	err := Follow()
+	testing.SetRealm(std.NewUserRealm(user1))
+	var err error
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		err = Follow()
+	})
 	uassert.NoError(t, err, "user should be able to follow admin's profile")
 
 	// Test admin trying to follow themselves
-	testing.SetOriginCaller(mainAddr)
-	err = Follow()
+	testing.SetRealm(std.NewUserRealm(mainAddr))
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		err = Follow()
+	})
 	uassert.Error(t, err, "you cannot follow yourself")
 
 	// Test following same address twice
-	testing.SetOriginCaller(user1)
-	err = Follow()
+	testing.SetRealm(std.NewUserRealm(user1))
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		err = Follow()
+	})
 	uassert.Error(t, err, "should not be able to follow same address twice")
 
 	// Test multiple users following admin
-	testing.SetOriginCaller(user2)
-	err = Follow()
+	testing.SetRealm(std.NewUserRealm(user2))
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		err = Follow()
+	})
 	uassert.NoError(t, err, "another user should be able to follow admin's profile")
 }
 
 func TestUnfollow(t *testing.T) {
 	// Test successful unfollow
-	testing.SetOriginCaller(user1)
-	err := Unfollow()
+	testing.SetRealm(std.NewUserRealm(user1))
+	var err error
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		err = Unfollow()
+	})
 	uassert.NoError(t, err)
 	uassert.False(t, profile.Followers.Has(user1))
 
 	// Test unfollowing when not following
-	err = Unfollow()
+	crossThrough(std.NewCodeRealm("gno.land/r/test/test"), func() {
+		err = Unfollow()
+	})
 	uassert.Error(t, err)
 
 }
