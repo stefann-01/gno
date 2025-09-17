@@ -1,5 +1,0 @@
-module = "gno.land/r/stefann/fomo3d"
-gno = "0.9"
-
-[addpkg]
-    creator = "g1xdt8hwewudz8cargmfv4zsnw3ax9ccygxzpzxx"
